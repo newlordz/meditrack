@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MediTrack Rewards &amp; Achievements</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0056b2",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .filled-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="flex min-h-screen">
+<!-- Side Navigation Bar -->
+<aside class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden lg:flex flex-col sticky top-0 h-screen">
+<div class="p-6 flex items-center gap-3">
+<div class="text-primary">
+<span class="material-symbols-outlined text-3xl">medical_services</span>
+</div>
+<h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">MediTrack</h2>
+</div>
+<div class="px-4 py-2 flex items-center gap-3 mb-6">
+<div class="size-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="Portrait of a smiling professional man" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXWX-gaac1jLDzV4PAbBU7QUbKkfU-97uz-ReWRycByYK9phJAJ6BcjDuTDME87eZk0sCCYWKWjaFp5ng0zktgoY_dVvDy1fyQLPsPbFi0-3hT1_6aFs2Ypfe-B7b1VAg9biLO7Skf7H5DQNWnbFEkLPV6tlG3YsIj_VwempLooDaKJqAfS_T3TFABNKONIOdVUbIj0G1R1lhYEOJefGJtppHdxjWW-Rr01gRYKXK8W3XNn3Y-ID1dw1DOisNJvfsxRcD-EYMrydI"/>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold truncate">Alex Johnson</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Level 12 Health Explorer</span>
+</div>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">pill</span>
+<span class="text-sm font-medium">Medications</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined filled-icon">emoji_events</span>
+<span class="text-sm font-bold">Rewards</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="text-sm font-medium">Appointments</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<button class="w-full py-2 px-4 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90 transition-all">
+                    View Profile
+                </button>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col">
+<!-- Header -->
+<header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
+<div class="lg:hidden flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">medical_services</span>
+<span class="font-bold">MediTrack</span>
+</div>
+<div class="hidden lg:block text-slate-500 text-sm font-medium">
+                    Dashboard / <span class="text-slate-900 dark:text-white">Rewards &amp; Achievements</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+</button>
+<div class="size-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" data-alt="Portrait of a smiling professional man" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChizHGkx2h2ZhwEmJDD547mxxsipuGqCFA-weTG6ZhhQpgDmcP91SAHgbODdHSaGq9Tuk8JRpl9ha4rquZc3ruY6dc2IhVPMy4VtyzbbyxQXzAiP9nmqQv96aweLAgOLuASzhCTt27N628KDcT3edVLJbeLOMD1vGi3xfdp5q0TbEBHX7mGODGsEE-kW0kYvQBeM2IJeGK3Vuk6s7WrCn3vqlU_VaSYf0y5812JIHn5tnYcuawb7MbvzTWfSowwLbOvKWKp8CfSgk"/>
+</div>
+</div>
+</header>
+<div class="p-6 max-w-6xl mx-auto w-full space-y-8">
+<!-- Welcome Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div class="space-y-1">
+<h1 class="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">Rewards &amp; Achievements</h1>
+<p class="text-slate-500 dark:text-slate-400 max-w-md">Keep up the great work! Consistent adherence earns you points and exclusive health badges.</p>
+</div>
+<div class="flex gap-4">
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4 min-w-[200px]">
+<div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl filled-icon">stars</span>
+</div>
+<div>
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Points</p>
+<p class="text-2xl font-black text-slate-900 dark:text-white">2,450 <span class="text-sm font-normal text-slate-400">pts</span></p>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-4 min-w-[160px]">
+<div class="size-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600">
+<span class="material-symbols-outlined text-3xl filled-icon">leaderboard</span>
+</div>
+<div>
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Global Rank</p>
+<p class="text-2xl font-black text-slate-900 dark:text-white">#124</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Current Streak Progress -->
+<section class="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+<div>
+<h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-orange-500 filled-icon">local_fire_department</span>
+                                Current Streak: 12 Days
+                            </h2>
+<p class="text-slate-500 text-sm mt-1">You're only 3 days away from your next "Punctuality Pro" reward!</p>
+</div>
+<div class="flex gap-2">
+<div class="h-10 px-4 bg-primary/5 text-primary rounded-lg flex items-center gap-2 text-sm font-semibold">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                                Next Milestone: 15 Days
+                            </div>
+</div>
+</div>
+<!-- CSS Progress Visual -->
+<div class="space-y-6">
+<div class="relative w-full h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="absolute top-0 left-0 h-full bg-primary transition-all" style="width: 80%;">
+<div class="absolute top-0 right-0 h-full w-8 bg-white/20 skew-x-12 transform translate-x-4"></div>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-2 md:gap-4">
+<!-- Streak day bubbles -->
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 md:size-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">M</div>
+<span class="material-symbols-outlined text-primary text-sm filled-icon">check_circle</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 md:size-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">T</div>
+<span class="material-symbols-outlined text-primary text-sm filled-icon">check_circle</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 md:size-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">W</div>
+<span class="material-symbols-outlined text-primary text-sm filled-icon">check_circle</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 md:size-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">T</div>
+<span class="material-symbols-outlined text-primary text-sm filled-icon">check_circle</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 md:size-12 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">F</div>
+<span class="material-symbols-outlined text-primary text-sm filled-icon">check_circle</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 md:size-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm border-2 border-dashed border-slate-300 dark:border-slate-700">S</div>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-700 text-sm">pending</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 md:size-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-sm border-2 border-dashed border-slate-300 dark:border-slate-700">S</div>
+<span class="material-symbols-outlined text-slate-300 dark:text-slate-700 text-sm">pending</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Achievements Grid -->
+<section>
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Achievements &amp; Badges</h2>
+<div class="flex gap-2">
+<span class="text-sm font-medium text-primary">12 Unlocked</span>
+<span class="text-sm font-medium text-slate-400">•</span>
+<span class="text-sm font-medium text-slate-400">8 Locked</span>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Achievement: 7-Day Streak (Unlocked) -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center text-center group transition-all hover:-translate-y-1">
+<div class="size-20 mb-4 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 p-1">
+<div class="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-orange-500 filled-icon">workspace_premium</span>
+</div>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white">7-Day Streak</h3>
+<p class="text-xs text-slate-500 mt-1">Completed a full week of doses without missing any.</p>
+<div class="mt-4 px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider rounded-full">Unlocked</div>
+</div>
+<!-- Achievement: Perfect Month (Locked) -->
+<div class="bg-white/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 shadow-sm flex flex-col items-center text-center opacity-60 grayscale relative">
+<div class="size-20 mb-4 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-slate-400">lock</span>
+</div>
+<h3 class="font-bold text-slate-400">Perfect Month</h3>
+<p class="text-xs text-slate-400 mt-1">30 days of consistent medical adherence.</p>
+<div class="mt-4 px-3 py-1 bg-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider rounded-full">Locked</div>
+</div>
+<!-- Achievement: Punctuality Pro (Unlocked) -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center text-center group transition-all hover:-translate-y-1">
+<div class="size-20 mb-4 rounded-full bg-gradient-to-br from-blue-400 to-primary p-1">
+<div class="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-primary filled-icon">schedule</span>
+</div>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white">Punctuality Pro</h3>
+<p class="text-xs text-slate-500 mt-1">Take your meds within 10 minutes of scheduled time.</p>
+<div class="mt-4 px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider rounded-full">Unlocked</div>
+</div>
+<!-- Achievement: Health Explorer (Unlocked) -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center text-center group transition-all hover:-translate-y-1">
+<div class="size-20 mb-4 rounded-full bg-gradient-to-br from-purple-400 to-purple-700 p-1">
+<div class="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-purple-600 filled-icon">explore</span>
+</div>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white">Health Explorer</h3>
+<p class="text-xs text-slate-500 mt-1">Logged symptoms for 14 days straight.</p>
+<div class="mt-4 px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider rounded-full">Unlocked</div>
+</div>
+<!-- Achievement: Hydration Hero (Locked) -->
+<div class="bg-white/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 shadow-sm flex flex-col items-center text-center opacity-60 grayscale relative">
+<div class="size-20 mb-4 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-slate-400">water_drop</span>
+</div>
+<h3 class="font-bold text-slate-400">Hydration Hero</h3>
+<p class="text-xs text-slate-400 mt-1">Record water intake with meds for 5 days.</p>
+<div class="mt-4 px-3 py-1 bg-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider rounded-full">Locked</div>
+</div>
+<!-- Achievement: Early Bird (Unlocked) -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center text-center group transition-all hover:-translate-y-1">
+<div class="size-20 mb-4 rounded-full bg-gradient-to-br from-cyan-400 to-teal-500 p-1">
+<div class="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-teal-600 filled-icon">light_mode</span>
+</div>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white">Early Bird</h3>
+<p class="text-xs text-slate-500 mt-1">Consistent morning medication before 8:00 AM.</p>
+<div class="mt-4 px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider rounded-full">Unlocked</div>
+</div>
+<!-- Achievement: Goal Crusher (Locked) -->
+<div class="bg-white/50 dark:bg-slate-900/50 p-6 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 shadow-sm flex flex-col items-center text-center opacity-60 grayscale relative">
+<div class="size-20 mb-4 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-slate-400">ads_click</span>
+</div>
+<h3 class="font-bold text-slate-400">Goal Crusher</h3>
+<p class="text-xs text-slate-400 mt-1">Reach 5,000 points in total achievements.</p>
+<div class="mt-4 px-3 py-1 bg-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-wider rounded-full">Locked</div>
+</div>
+<!-- Achievement: Community Star (Unlocked) -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center text-center group transition-all hover:-translate-y-1">
+<div class="size-20 mb-4 rounded-full bg-gradient-to-br from-pink-400 to-rose-600 p-1">
+<div class="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-rose-500 filled-icon">volunteer_activism</span>
+</div>
+</div>
+<h3 class="font-bold text-slate-900 dark:text-white">Community Star</h3>
+<p class="text-xs text-slate-500 mt-1">Shared encouragement to 5 fellow patients.</p>
+<div class="mt-4 px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider rounded-full">Unlocked</div>
+</div>
+</div>
+</section>
+<!-- Rewards Shop Preview -->
+<section class="bg-primary/5 rounded-2xl p-8 border border-primary/10 flex flex-col md:flex-row items-center justify-between gap-8">
+<div class="max-w-lg">
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">Redeem Your Points</h2>
+<p class="text-slate-600 dark:text-slate-400">You can use your hard-earned points to unlock digital health assets, premium features, or even donate to health charities.</p>
+<div class="flex flex-wrap gap-4 mt-6">
+<div class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary">verified_user</span>
+                                Digital Icons
+                            </div>
+<div class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary">volunteer_activism</span>
+                                Charity Donation
+                            </div>
+<div class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary">workspace_premium</span>
+                                Pro Features
+                            </div>
+</div>
+</div>
+<button class="bg-primary text-white font-bold py-4 px-8 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 whitespace-nowrap">
+                        Go to Reward Store
+                    </button>
+</section>
+</div>
+<footer class="mt-auto p-6 border-t border-slate-200 dark:border-slate-800 text-center text-sm text-slate-500 dark:text-slate-400">
+                © 2024 MediTrack Health Systems. Your health journey, gamified.
+            </footer>
+</main>
+</div>
+</body></html>

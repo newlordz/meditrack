@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MediTrack Conflict &amp; Interaction Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0056b2",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="flex min-h-screen overflow-x-hidden">
+<!-- Side Navigation Bar -->
+<aside class="w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col justify-between p-4 sticky top-0 h-screen">
+<div class="flex flex-col gap-8">
+<div class="flex items-center gap-3 px-2">
+<div class="bg-primary rounded-lg p-1.5 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-2xl">shield_with_heart</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-white text-base font-bold leading-none">MediTrack</h1>
+<p class="text-slate-500 dark:text-slate-400 text-[10px] font-medium uppercase tracking-wider">Safety First</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">dashboard</span>
+<span class="text-sm font-semibold">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">group</span>
+<span class="text-sm font-semibold">Patient Records</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="text-sm font-bold">Interaction Center</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">medication</span>
+<span class="text-sm font-semibold">Medication Logs</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined text-xl">settings</span>
+<span class="text-sm font-semibold">Settings</span>
+</a>
+</nav>
+</div>
+<div class="flex flex-col gap-4">
+<div class="p-3 bg-red-50 dark:bg-red-950/30 rounded-xl border border-red-100 dark:border-red-900/50">
+<p class="text-red-700 dark:text-red-400 text-xs font-bold mb-1 uppercase">Active Alerts</p>
+<p class="text-red-600 dark:text-red-300 text-sm font-medium">3 High Severity Conflicts</p>
+</div>
+<button class="w-full flex items-center justify-center gap-2 rounded-lg h-11 bg-primary text-white text-sm font-bold tracking-tight hover:bg-primary/90 transition-all shadow-md">
+<span class="material-symbols-outlined text-lg">emergency</span>
+                    Emergency Protocol
+                </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+<!-- Header -->
+<header class="flex items-center justify-between h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 sticky top-0 z-10">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full h-10 pl-10 pr-4 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/20" placeholder="Search interactions, drugs, or patients..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="size-10 flex items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold leading-none">Dr. Sarah Chen</p>
+<p class="text-xs text-slate-500 font-medium">Chief Pharmacist</p>
+</div>
+<div class="size-10 rounded-full bg-slate-200 bg-cover bg-center border-2 border-white dark:border-slate-800" data-alt="Profile picture of a female doctor" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBes9RIXqqyikozonE8LDthA7ckUxq7V5EyfPInjAZgkV_Ii31IGRZPv0Jt5GQtCIN4QJgxstGqYDBdu3frVoTfqRrRh_N5pwYwVfk7rkyQ2KyZV3O2fZoQxjxWX_G09opg5jGAC4mQ-pwn-K7bn8ZgDev5iOjas9x1TKgYe3eARvdzCow5f_Ev-e52psRr1j10XI4JZFBCjALAwW1Z3BrwHd-BovULzwB1e1on38X5WIEZXf3jtqFeu2vi_0YntElqoU8PU3qBBFs')"></div>
+</div>
+</div>
+</header>
+<div class="p-8 max-w-6xl mx-auto w-full">
+<!-- Page Title Section -->
+<div class="flex flex-wrap items-end justify-between gap-6 mb-8">
+<div class="space-y-1">
+<nav class="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+<span>Clinical Safety</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary">Conflict Analysis</span>
+</nav>
+<h2 class="text-4xl font-black tracking-tight text-slate-900 dark:text-white">Smart Dose Conflicts</h2>
+<p class="text-slate-500 dark:text-slate-400 text-lg">Real-time cross-interaction screening for <strong>Patient: John Doe (ID: #4492)</strong></p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 h-11 px-5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm shadow-sm hover:bg-slate-50">
+<span class="material-symbols-outlined text-lg">sync</span>
+                            Refresh Analysis
+                        </button>
+<button class="flex items-center gap-2 h-11 px-5 rounded-lg bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90">
+<span class="material-symbols-outlined text-lg">print</span>
+                            Export Report
+                        </button>
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto no-scrollbar">
+<button class="px-6 py-3 border-b-2 border-primary text-primary font-bold text-sm whitespace-nowrap">
+                        Critical Conflicts (3)
+                    </button>
+<button class="px-6 py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 font-bold text-sm hover:text-slate-700 whitespace-nowrap">
+                        Moderate Interactions (5)
+                    </button>
+<button class="px-6 py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 font-bold text-sm hover:text-slate-700 whitespace-nowrap">
+                        Resolved (12)
+                    </button>
+</div>
+<!-- Conflict List -->
+<div class="flex flex-col gap-6">
+<!-- High Severity Conflict -->
+<div class="group relative bg-white dark:bg-slate-900 border-l-8 border-red-600 rounded-xl shadow-xl overflow-hidden ring-1 ring-slate-200 dark:ring-slate-800">
+<div class="p-6">
+<div class="flex flex-col lg:flex-row gap-6">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-[10px] font-black uppercase tracking-widest">
+<span class="material-symbols-outlined text-[14px] fill-1">report</span>
+                                            High Severity
+                                        </span>
+<span class="text-slate-400 text-xs font-medium">Detected 2 mins ago</span>
+</div>
+<h3 class="text-2xl font-extrabold text-slate-900 dark:text-white mb-2 leading-tight">Warfarin interacts with Ibuprofen</h3>
+<p class="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Concurrent use may significantly increase the risk of gastrointestinal bleeding and hemorrhage due to combined anticoagulant and antiplatelet effects.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+<div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommended Action</p>
+<div class="flex items-start gap-2 text-red-600 dark:text-red-400 font-bold italic">
+<span class="material-symbols-outlined text-xl">medical_services</span>
+<span>Consult Pharmacist &amp; Discontinue Ibuprofen immediately.</span>
+</div>
+</div>
+<div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Interaction ID</p>
+<p class="text-slate-700 dark:text-slate-300 font-mono text-sm">RX-CONTRA-99120-B</p>
+</div>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary/10 text-primary font-bold text-sm hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined text-lg">science</span>
+                                            Scientific Reasoning
+                                        </button>
+<button class="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-100">
+<span class="material-symbols-outlined text-lg">edit</span>
+                                            Modify Prescription
+                                        </button>
+</div>
+</div>
+<div class="lg:w-72">
+<div class="aspect-[4/3] rounded-lg bg-slate-100 dark:bg-slate-800 flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 dark:border-slate-700">
+<span class="material-symbols-outlined text-5xl text-red-600 mb-3">warning_off</span>
+<p class="text-center text-sm font-bold text-slate-500">Visualization unavailable for high-risk flags</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Amber Severity Conflict -->
+<div class="group relative bg-white dark:bg-slate-900 border-l-8 border-amber-500 rounded-xl shadow-lg ring-1 ring-slate-200 dark:ring-slate-800">
+<div class="p-6">
+<div class="flex flex-col lg:flex-row gap-6">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest">
+<span class="material-symbols-outlined text-[14px] fill-1">info</span>
+                                            Moderate Severity
+                                        </span>
+<span class="text-slate-400 text-xs font-medium">Detected 1 hour ago</span>
+</div>
+<h3 class="text-2xl font-extrabold text-slate-900 dark:text-white mb-2 leading-tight">Lisinopril interacts with Spironolactone</h3>
+<p class="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">Risk of hyperkalemia (high potassium levels). Close monitoring of serum potassium and renal function is advised during combined therapy.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+<div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommended Action</p>
+<div class="flex items-start gap-2 text-amber-700 dark:text-amber-400 font-bold italic">
+<span class="material-symbols-outlined text-xl">biotech</span>
+<span>Schedule follow-up metabolic panel within 7 days.</span>
+</div>
+</div>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary/10 text-primary font-bold text-sm hover:bg-primary hover:text-white transition-all">
+<span class="material-symbols-outlined text-lg">science</span>
+                                            Scientific Reasoning
+                                        </button>
+<button class="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-100">
+<span class="material-symbols-outlined text-lg">history</span>
+                                            Patient History
+                                        </button>
+</div>
+</div>
+<div class="lg:w-72">
+<div class="aspect-[4/3] rounded-lg bg-primary/5 dark:bg-primary/10 flex flex-col items-center justify-center p-6 border border-primary/20">
+<span class="material-symbols-outlined text-5xl text-primary mb-3">analytics</span>
+<p class="text-center text-sm font-bold text-primary">View Metabolism Chart</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Scientific Reasoning Modal (Simulated) -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:hidden"> <!-- Only visible for specific logic if JS was allowed, but stylized for layout -->
+</div>
+<!-- Hidden by default, representing how it would look if active -->
+<div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+<div class="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
+<div class="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">science</span>
+<h3 class="text-xl font-bold">Scientific Analysis: RX-99120-B</h3>
+</div>
+<button class="text-slate-400 hover:text-slate-600"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="p-8 space-y-6">
+<div>
+<h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Mechanism of Interaction</h4>
+<p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+                        Nonsteroidal anti-inflammatory drugs (NSAIDs) like Ibuprofen may enhance the anticoagulant effect of Warfarin. This occurs through several mechanisms: displacement of Warfarin from protein binding sites, interference with platelet function, and potential induction of gastric mucosal injury which increases bleeding risk.
+                    </p>
+</div>
+<div>
+<h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Clinical Significance</h4>
+<p class="text-slate-700 dark:text-slate-300 leading-relaxed">
+                        Studies indicate a 3.3-fold increase in the risk of GI bleeding when these agents are co-administered. The effect on INR may also be unpredictable.
+                    </p>
+</div>
+<div class="p-4 bg-primary/5 rounded-xl border border-primary/10">
+<h4 class="text-xs font-black text-primary uppercase tracking-widest mb-2">Evidence Level</h4>
+<p class="text-sm font-bold text-slate-900 dark:text-white">Level A: Extensive clinical research and documented case studies.</p>
+</div>
+</div>
+<div class="p-6 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+<button class="px-6 py-2.5 bg-primary text-white font-bold rounded-lg">Close Details</button>
+</div>
+</div>
+</div>
+</body></html>

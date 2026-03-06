@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MediTrack AI - Pill Verification</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0056b2",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .scanner-overlay {
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="flex h-screen overflow-hidden">
+<!-- Side Navigation Bar -->
+<aside class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col">
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary p-2 rounded-lg text-white">
+<span class="material-symbols-outlined block">emergency</span>
+</div>
+<h2 class="text-xl font-bold tracking-tight text-primary">MediTrack</h2>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="font-medium text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined leading-none" style="font-variation-settings: 'FILL' 1">photo_camera</span>
+<span class="font-medium text-sm">Pill Verification</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-medium text-sm">Medication History</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">local_pharmacy</span>
+<span class="font-medium text-sm">Pharmacy Finder</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium text-sm">Settings</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 p-2">
+<img alt="Doctor profile" class="w-10 h-10 rounded-full bg-slate-200" data-alt="Professional doctor profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtSqCUMNIL62_UnpblJspHk1rRFV7-8PV_Jn1Rkj24FhVivF1wVH53Q1zDcaMTdmcv3G01lwmHIOeUWV-mHMTwNUqQmjvTpQkAyygQyM9KVg56V8vv8P4tqGsRYFHMorTUpP9kQm92WP67BSMUcOOxSKZ1qgPriMc0lYxw-r6r0b_YRSWoh_aNQgTDlNEAZFWAimmqabsYo6iWM3SKsyqekB0bPX5jjGXhHi-gzttn_dhuxoyf-rdeClyPPCLyBZJITcgBusLGbsk"/>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-bold truncate">Dr. Sarah Chen</p>
+<p class="text-[10px] text-slate-500 truncate">Cardiology Specialist</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-background-light dark:bg-background-dark overflow-y-auto">
+<!-- Header -->
+<header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-10">
+<div class="flex items-center gap-2">
+<span class="text-slate-400 text-sm">Verification Suite</span>
+<span class="material-symbols-outlined text-slate-300 text-sm">chevron_right</span>
+<span class="text-slate-900 dark:text-white font-medium text-sm">Webcam Pill Verification</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-px bg-slate-200 dark:border-slate-700"></div>
+<span class="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded">System Online</span>
+</div>
+</header>
+<div class="p-8 flex gap-8 h-[calc(100vh-64px)]">
+<!-- Camera Feed Column -->
+<div class="flex-1 flex flex-col gap-6">
+<div class="flex flex-col gap-2">
+<h1 class="text-2xl font-bold">Pill Identification</h1>
+<p class="text-slate-500 text-sm">Place your medication within the frame for AI-assisted validation and logging.</p>
+</div>
+<!-- Webcam Interface -->
+<div class="relative flex-1 bg-slate-900 rounded-xl overflow-hidden shadow-2xl border-4 border-white dark:border-slate-800">
+<!-- Placeholder for Video Feed -->
+<div class="absolute inset-0 bg-slate-800 flex items-center justify-center">
+<img alt="Camera feed preview" class="w-full h-full object-cover opacity-60" data-alt="Close up of medicine capsules on a white surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZD4iL9f_E0OnD685PCKkHTqcSf7BFS2vKzpsgT5r5qQMKPQpvXDj57283ywDN1H_DaVErAMbe2NWekq819R1jI1ZHIyyhJCOlxYgAbH15-Bpx69dUtA67Bx2OSodzpBwEPUzQeAaLyTDNd6rJXJMpvXnuAE8BaEfizoqwZ2ZkOX5tjp1GvX2dRuHeaJ0es9g94RWAotcSuwuxkq606CbJycIWcSuvqrAerHQbXKKOOXp-8N2yB6PxD202MZThcboFqyVEEMYc6xo"/>
+</div>
+<!-- Scanner UI Overlay -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="w-64 h-64 scanner-overlay rounded-2xl relative">
+<!-- Corner Brackets -->
+<div class="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-primary"></div>
+<div class="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-primary"></div>
+<div class="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-primary"></div>
+<div class="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-primary"></div>
+</div>
+</div>
+<!-- Instructions Banner -->
+<div class="absolute top-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md text-white px-6 py-2 rounded-full flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">info</span>
+<span class="text-sm font-medium">Place your pill within the frame</span>
+</div>
+<!-- Bottom Controls -->
+<div class="absolute bottom-0 inset-x-0 p-8 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
+<span class="text-white text-sm font-medium">AI Scanning...</span>
+</div>
+<button class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+<div class="w-12 h-12 rounded-full border-4 border-primary bg-primary/20"></div>
+</button>
+<div class="flex gap-2">
+<button class="p-3 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm">
+<span class="material-symbols-outlined">zoom_in</span>
+</button>
+<button class="p-3 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm">
+<span class="material-symbols-outlined">lightbulb</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar Details Column -->
+<aside class="w-80 flex flex-col gap-6 overflow-y-auto pr-2">
+<!-- Expected Medication Card -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-slate-900 dark:text-white">Prescription Target</h3>
+<span class="text-[10px] font-bold text-primary uppercase tracking-wider">Morning Dose</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+<div class="bg-white dark:bg-slate-800 p-2 rounded-md shadow-sm">
+<span class="material-symbols-outlined text-primary">pill</span>
+</div>
+<div>
+<p class="text-sm font-bold">Lisinopril</p>
+<p class="text-xs text-slate-500">10mg Oral Tablet</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 text-xs">
+<div>
+<p class="text-slate-400 mb-1">Shape</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">circle</span>
+<span class="font-medium">Round</span>
+</div>
+</div>
+<div>
+<p class="text-slate-400 mb-1">Color</p>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-pink-200 border border-pink-300"></div>
+<span class="font-medium">Light Pink</span>
+</div>
+</div>
+<div>
+<p class="text-slate-400 mb-1">Imprint</p>
+<p class="font-medium font-mono">L 10</p>
+</div>
+<div>
+<p class="text-slate-400 mb-1">Scoring</p>
+<p class="font-medium">Unscored</p>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Confidence Metrics -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<h3 class="font-bold text-slate-900 dark:text-white mb-4">Verification Status</h3>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-slate-500">Visual Match</span>
+<span class="font-bold text-green-600">98.2%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5">
+<div class="bg-green-500 h-1.5 rounded-full" style="width: 98%"></div>
+</div>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+<span class="text-xs font-medium">Authenticity Check</span>
+</div>
+<span class="text-[10px] font-bold text-slate-400">PASSED</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+<span class="text-xs font-medium">Batch Verification</span>
+</div>
+<span class="text-[10px] font-bold text-slate-400">PASSED</span>
+</div>
+</div>
+<button class="w-full mt-6 bg-primary text-white py-3 rounded-lg font-bold text-sm hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+                            Confirm &amp; Log Dose
+                        </button>
+<button class="w-full mt-2 bg-transparent text-slate-500 dark:text-slate-400 py-2 text-xs font-medium hover:underline">
+                            Request Manual Review
+                        </button>
+</div>
+<!-- Guidelines -->
+<div class="p-4 bg-primary/5 rounded-xl border border-primary/10">
+<h4 class="text-xs font-bold text-primary uppercase mb-2">Scanning Tips</h4>
+<ul class="text-[11px] text-slate-600 dark:text-slate-400 space-y-2">
+<li class="flex gap-2">
+<span class="material-symbols-outlined text-[14px]">light_mode</span>
+                                Ensure bright, even lighting.
+                            </li>
+<li class="flex gap-2">
+<span class="material-symbols-outlined text-[14px]">center_focus_weak</span>
+                                Keep the pill centered and flat.
+                            </li>
+<li class="flex gap-2">
+<span class="material-symbols-outlined text-[14px]">backspace</span>
+                                Remove any other objects from view.
+                            </li>
+</ul>
+</div>
+</aside>
+</div>
+</main>
+</div>
+</body></html>

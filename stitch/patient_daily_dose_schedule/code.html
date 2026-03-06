@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MediTrack - Daily Dose</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0056b2",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased">
+<div class="flex min-h-screen">
+<!-- Side Navigation Bar -->
+<aside class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col fixed h-full">
+<div class="p-6 flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined">medical_services</span>
+</div>
+<div>
+<h1 class="text-lg font-bold text-slate-900 dark:text-white leading-tight">MediTrack</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400">Patient Portal</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary font-semibold transition-colors" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span>Schedule</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>Insights</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span>Rewards</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span>Profile</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 p-2">
+<div class="w-10 h-10 rounded-full bg-slate-200" data-alt="User profile avatar photo portrait">
+<img alt="Profile" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPIMRuApmRotAo7Dd4jFDQK50QJbZQ74snuCuNxN1BMbs_g-zPX2oZg7fbVyrBz8A53uoLjiy3qw6BBqXJq2v3xwkk1MYQzPdqA9SrdzZQs7UIvu2yfQfsk3-ezLRZQz0Qs13ZuEPVQxOUPSmpi2el7yAe2zPguqZT5Xieb7xHdaVtKis095gixy9Osr10hgT5NcTze0MR_SF6aju70gOIqDQr2BFbXfdegjYgpnc4j7eJ0quPtT7HuRCo3np0vgRRu9PwLOG8SxE"/>
+</div>
+<div class="overflow-hidden">
+<p class="text-sm font-medium truncate">Alex Johnson</p>
+<p class="text-xs text-slate-500 truncate">ID: 4829-XJ</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 flex-1 flex flex-col min-w-0">
+<!-- Header -->
+<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+<div class="max-w-4xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-4">
+<div>
+<h2 class="text-3xl font-black tracking-tight">Daily Dose</h2>
+<p class="text-slate-500 dark:text-slate-400 mt-1">Thursday, October 24th — You're on track!</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined text-sm">mic</span>
+                        Log via Voice
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+                        Add Medication
+                    </button>
+</div>
+</div>
+</header>
+<!-- Timeline Section -->
+<section class="max-w-4xl mx-auto w-full px-6 py-8">
+<div class="relative space-y-8">
+<!-- Vertical Timeline Line -->
+<div class="absolute left-6 top-4 bottom-4 w-0.5 bg-slate-200 dark:bg-slate-800"></div>
+<!-- Dose Card: Taken -->
+<div class="relative pl-14 group">
+<!-- Timeline Dot -->
+<div class="absolute left-[21px] top-6 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-slate-900"></div>
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm flex items-center justify-between gap-4">
+<div class="flex items-start gap-5">
+<div class="w-14 h-14 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600">
+<span class="material-symbols-outlined text-3xl">pill</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold uppercase tracking-wider text-slate-400">8:00 AM</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase">Taken</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Aspirin</h3>
+<p class="text-slate-500 dark:text-slate-400">100mg • After Breakfast</p>
+<p class="text-xs text-emerald-600 font-medium mt-1">Logged at 8:05 AM</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 transition-colors">
+<span class="material-symbols-outlined">info</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Dose Card: Missed -->
+<div class="relative pl-14 group">
+<!-- Timeline Dot -->
+<div class="absolute left-[21px] top-6 w-3 h-3 rounded-full bg-rose-500 ring-4 ring-white dark:ring-slate-900"></div>
+<div class="bg-rose-50/50 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-900/50 rounded-xl p-6 shadow-sm flex items-center justify-between gap-4">
+<div class="flex items-start gap-5">
+<div class="w-14 h-14 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600">
+<span class="material-symbols-outlined text-3xl">vaccines</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold uppercase tracking-wider text-slate-500">10:30 AM</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-200 text-rose-700 uppercase">Missed</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Omega-3</h3>
+<p class="text-slate-500 dark:text-slate-400">1000mg • Dietary Supplement</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-6 py-2.5 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition-all text-sm">
+                                Mark as Taken
+                            </button>
+</div>
+</div>
+</div>
+<!-- Dose Card: Current/Next -->
+<div class="relative pl-14 group">
+<!-- Timeline Dot -->
+<div class="absolute left-[20px] top-6 w-4 h-4 rounded-full bg-primary ring-4 ring-primary/20 animate-pulse"></div>
+<div class="bg-white dark:bg-slate-900 border-2 border-primary rounded-xl p-8 shadow-xl relative overflow-hidden">
+<!-- Background Pattern Decor -->
+<div class="absolute top-0 right-0 p-4 opacity-5">
+<span class="material-symbols-outlined text-9xl">schedule</span>
+</div>
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+<div class="flex items-start gap-6">
+<div class="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-4xl">medication</span>
+</div>
+<div>
+<div class="flex items-center gap-3 mb-2">
+<span class="text-sm font-black text-primary uppercase tracking-widest">12:00 PM</span>
+<span class="px-2.5 py-1 rounded-full text-[11px] font-black bg-primary text-white uppercase tracking-wider">Next Dose</span>
+</div>
+<h3 class="text-2xl font-black text-slate-900 dark:text-white leading-tight">Vitamin D3</h3>
+<p class="text-slate-600 dark:text-slate-400 text-lg">1 Capsule (4000 IU)</p>
+<div class="flex items-center gap-4 mt-4">
+<button class="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors text-sm font-semibold">
+<span class="material-symbols-outlined text-lg">notifications</span>
+                                            Remind in 15m
+                                        </button>
+<button class="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors text-sm font-semibold">
+<span class="material-symbols-outlined text-lg">info</span>
+                                            Details
+                                        </button>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-3 min-w-[200px]">
+<button class="w-full py-4 bg-primary text-white font-black rounded-xl hover:scale-[1.02] transition-transform shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">check_circle</span>
+                                    Mark as Taken
+                                </button>
+<button class="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">mic</span>
+                                    Log via Voice
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Dose Card: Upcoming -->
+<div class="relative pl-14 group opacity-75 grayscale-[20%] hover:opacity-100 hover:grayscale-0 transition-all">
+<!-- Timeline Dot -->
+<div class="absolute left-[21px] top-6 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 ring-4 ring-white dark:ring-slate-900"></div>
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm flex items-center justify-between gap-4">
+<div class="flex items-start gap-5">
+<div class="w-14 h-14 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+<span class="material-symbols-outlined text-3xl">pill</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold uppercase tracking-wider text-slate-400">6:00 PM</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 uppercase">Upcoming</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Metformin</h3>
+<p class="text-slate-500 dark:text-slate-400">500mg • Before Dinner</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-2">
+<button class="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-lg hover:bg-slate-300 transition-colors text-sm">
+                                Pre-log Dose
+                            </button>
+</div>
+</div>
+</div>
+<!-- Dose Card: Upcoming -->
+<div class="relative pl-14 group opacity-75 grayscale-[20%] hover:opacity-100 hover:grayscale-0 transition-all">
+<!-- Timeline Dot -->
+<div class="absolute left-[21px] top-6 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 ring-4 ring-white dark:ring-slate-900"></div>
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm flex items-center justify-between gap-4">
+<div class="flex items-start gap-5">
+<div class="w-14 h-14 rounded-lg bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+<span class="material-symbols-outlined text-3xl">pill</span>
+</div>
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-bold uppercase tracking-wider text-slate-400">9:00 PM</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 uppercase">Upcoming</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Lisinopril</h3>
+<p class="text-slate-500 dark:text-slate-400">10mg • Nighttime</p>
+</div>
+</div>
+<div class="flex flex-col items-end gap-2">
+<button class="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-lg hover:bg-slate-300 transition-colors text-sm">
+                                Pre-log Dose
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Insights Snippet -->
+<footer class="max-w-4xl mx-auto w-full px-6 pb-12">
+<div class="bg-primary/5 rounded-2xl p-6 border border-primary/10 flex flex-col md:flex-row items-center gap-6">
+<div class="flex-1">
+<h4 class="text-primary font-bold text-lg mb-1">Daily Progress</h4>
+<p class="text-slate-600 dark:text-slate-400 text-sm">You have taken 1 of 5 medications today. Keep it up! Taking your medication consistently improves health outcomes by 40%.</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative w-16 h-16">
+<svg class="w-full h-full" viewbox="0 0 36 36">
+<path class="text-slate-200 dark:text-slate-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+<path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="20, 100" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-xs font-black text-primary">20%</span>
+</div>
+</div>
+<button class="text-primary font-bold text-sm hover:underline">View Insights</button>
+</div>
+</div>
+</footer>
+</main>
+</div>
+</body></html>

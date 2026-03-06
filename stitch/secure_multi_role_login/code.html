@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MediTrack | Secure Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0056b2",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1923",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex items-center justify-center p-4">
+<div class="max-w-[1100px] w-full grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+<!-- Left Side: Branding & Role Selection -->
+<div class="flex flex-col gap-8 py-8 px-4">
+<div class="flex items-center gap-3">
+<div class="bg-primary p-2 rounded-lg">
+<span class="material-symbols-outlined text-white text-3xl">medical_services</span>
+</div>
+<h1 class="text-4xl font-bold tracking-tight text-primary">MediTrack</h1>
+</div>
+<div class="space-y-2">
+<h2 class="text-2xl font-bold">Welcome back</h2>
+<p class="text-slate-600 dark:text-slate-400">Please select your clinical role to access your personalized healthcare dashboard.</p>
+</div>
+<!-- Role Selection Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Patient Card -->
+<button class="flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary dark:hover:border-primary transition-all text-left group">
+<div class="bg-primary/10 p-3 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-primary">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<h3 class="font-bold">Patient</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">View records &amp; appointments</p>
+</div>
+</button>
+<!-- Doctor Card -->
+<button class="flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border-2 border-primary rounded-xl text-left relative overflow-hidden">
+<div class="absolute top-0 right-0 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">SELECTED</div>
+<div class="bg-primary p-3 rounded-lg text-white">
+<span class="material-symbols-outlined">stethoscope</span>
+</div>
+<div>
+<h3 class="font-bold">Doctor</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Manage patients &amp; charts</p>
+</div>
+</button>
+<!-- Pharmacist Card -->
+<button class="flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary dark:hover:border-primary transition-all text-left group">
+<div class="bg-primary/10 p-3 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-primary">
+<span class="material-symbols-outlined">medication</span>
+</div>
+<div>
+<h3 class="font-bold">Pharmacist</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Fill prescriptions &amp; inventory</p>
+</div>
+</button>
+<!-- Caregiver Card -->
+<button class="flex items-start gap-4 p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary dark:hover:border-primary transition-all text-left group">
+<div class="bg-primary/10 p-3 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors text-primary">
+<span class="material-symbols-outlined">favorite</span>
+</div>
+<div>
+<h3 class="font-bold">Caregiver</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Coordinated care tools</p>
+</div>
+</button>
+</div>
+<!-- Visual Decorative Area -->
+<div class="hidden lg:block relative mt-4">
+<div class="w-full h-[200px] rounded-xl overflow-hidden bg-primary/20 bg-cover bg-center border border-primary/10" data-alt="Modern high-tech medical research facility background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAYqAcrgKG-eCSzEsfmvXgDyBtqLxYpEs50Kur4Tu1K1t_Rtd3zB8IbNSZTUTpDldAQQOWWi8z02YemchCwov8ZBCSjacFPFuBkLu35IHzCig3yNuN6MxXBsMOD00kMyQSDykEUkiw-pnZPcBL5njt-aRdK9z0dZ6xNN5jzyt1gZrqsW9kSAHLm2-3N3d0PKa5BtC8G2DCkbPwGTBHdRB3aIiUkIlN8GiD1bh5xRXN54WeEY38twVS_KzDEwi-h5vEfK78dIIr4lMU')">
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-light dark:from-background-dark to-transparent"></div>
+</div>
+</div>
+<!-- Right Side: Login Form -->
+<div class="w-full max-w-md mx-auto lg:ml-auto">
+<div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl shadow-primary/5 border border-slate-100 dark:border-slate-700">
+<div class="mb-8">
+<h2 class="text-xl font-bold mb-1">Secure Sign In</h2>
+<p class="text-sm text-slate-500 dark:text-slate-400">Enter your credentials to continue.</p>
+</div>
+<form action="#" class="space-y-5">
+<!-- Email/Username -->
+<div>
+<label class="block text-sm font-medium mb-1.5" for="id-login">Email or Medical ID</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">alternate_email</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm outline-none" id="id-login" placeholder="e.g. dr.smith@meditrack.com" type="text"/>
+</div>
+</div>
+<!-- Password -->
+<div>
+<div class="flex items-center justify-between mb-1.5">
+<label class="block text-sm font-medium" for="password">Password</label>
+<a class="text-xs text-primary font-semibold hover:underline" href="#">Forgot?</a>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">lock</span>
+<input class="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm outline-none" id="password" placeholder="••••••••" type="password"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" type="button">
+<span class="material-symbols-outlined text-sm">visibility</span>
+</button>
+</div>
+</div>
+<!-- MFA Section -->
+<div class="pt-4 border-t border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-primary text-sm">verified_user</span>
+<span class="text-sm font-semibold">Multi-Factor Authentication</span>
+</div>
+<p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Enter the 6-digit code from your authenticator app or SMS.</p>
+<div class="flex gap-2 justify-between">
+<input class="w-12 h-12 text-center text-lg font-bold border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-12 text-center text-lg font-bold border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-12 text-center text-lg font-bold border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-12 text-center text-lg font-bold border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-12 text-center text-lg font-bold border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-12 text-center text-lg font-bold border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none" maxlength="1" type="text"/>
+</div>
+</div>
+<!-- Sign In Button -->
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-4" type="submit">
+                        Secure Access 
+                        <span class="material-symbols-outlined text-sm">login</span>
+</button>
+</form>
+<div class="mt-8 text-center text-xs text-slate-400">
+<p>© 2024 MediTrack Solutions. All rights reserved.</p>
+<div class="mt-2 space-x-3">
+<a class="hover:underline" href="#">Privacy Policy</a>
+<span>•</span>
+<a class="hover:underline" href="#">Terms of Service</a>
+<span>•</span>
+<a class="hover:underline" href="#">Contact Support</a>
+</div>
+</div>
+</div>
+<!-- Accessibility Note -->
+<div class="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-start gap-3">
+<span class="material-symbols-outlined text-primary">info</span>
+<p class="text-xs text-slate-600 dark:text-slate-400">This portal uses 256-bit encryption. For security reasons, please log out after your session.</p>
+</div>
+</div>
+</div>
+</body></html>
