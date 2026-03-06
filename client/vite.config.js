@@ -11,6 +11,6 @@ export default defineConfig({
     }
   },
   preview: {
-    allowedHosts: true
+    allowedHosts: ['meditrack-production-9615.up.railway.app']
   }
 })
