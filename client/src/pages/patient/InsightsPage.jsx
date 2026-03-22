@@ -157,7 +157,7 @@ export default function InsightsPage() {
                         <h3 className="text-lg font-bold text-slate-900 mb-6">Weekly Adherence Trend</h3>
                         <div className="h-64 flex items-end gap-2 sm:gap-4 justify-between">
                             {mockWeeklyData.map((data, i) => (
-                                <div key={i} className="flex flex-col items-center flex-1 gap-3">
+                                <div key={i} className="flex flex-col items-center flex-1 gap-3 h-full">
                                     <div className="w-full bg-slate-100 rounded-t-xl relative flex items-end justify-center h-full">
                                         <div
                                             className={`w-full rounded-t-xl absolute bottom-0 transition-all duration-1000 ${data.val >= 90 ? 'bg-primary' : data.val > 0 ? 'bg-amber-400' : 'bg-slate-200'}`}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CAREGIVER_PATIENTS, TODAY_SCHEDULE } from '../../data/mockData';
+import { useApi } from '../../hooks/useApi';
+import { getPatients } from '../../api/api';
 
 const TABS = [
     { key: 'all', label: 'All Patients' },
@@ -23,21 +24,24 @@ export default function CaregiverPatientsPage() {
     const [search, setSearch] = useState('');
     const [viewPatient, setViewPatient] = useState(null);
     const [reminders, setReminders] = useState({});
+    const { data: allPatients } = useApi(getPatients);
 
     const sendReminder = (id) => {
         setReminders(r => ({ ...r, [id]: true }));
         setTimeout(() => setReminders(r => ({ ...r, [id]: false })), 2500);
     };
 
-    const filtered = CAREGIVER_PATIENTS.filter(p => {
+    const caregiverPatients = (allPatients || []).filter(p => p.caregiverName);
+
+    const searchFiltered = caregiverPatients.filter(p => {
         const q = search.toLowerCase();
-        const matchSearch = p.name.toLowerCase().includes(q) || p.condition.toLowerCase().includes(q);
-        const matchTab =
-            activeTab === 'all' ? true :
-                activeTab === 'missed' ? p.status === 'missed' :
-                    activeTab === 'refill' ? (p.refillStatus === 'urgent' || p.refillStatus === 'warning') :
-                        true;
-        return matchSearch && matchTab;
+        return p.name.toLowerCase().includes(q) || p.conditions?.join(',').toLowerCase().includes(q);
+    });
+
+    const filtered = searchFiltered.filter(p => {
+        if (activeTab === 'critical') return p.activeEscalations > 0;
+        if (activeTab === 'active') return p.activeEscalations === 0;
+        return true;
     });
 
     return (
@@ -87,7 +91,7 @@ export default function CaregiverPatientsPage() {
                         <div className="px-6 py-4">
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Today's Schedule</p>
                             <div className="space-y-2">
-                                {(TODAY_SCHEDULE[viewPatient.id] || []).map((s, i) => (
+                                {(viewPatient.schedules || []).map((s, i) => (
                                     <div key={i} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${s.taken ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-200'}`}>
                                         <div className="flex items-center gap-3">
                                             <span className={`material-symbols-outlined text-[20px] ${s.taken ? 'text-emerald-500' : 'text-slate-300'}`}>
@@ -146,9 +150,9 @@ export default function CaregiverPatientsPage() {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-3 gap-4">
                     {[
-                        { label: 'Total Patients', value: CAREGIVER_PATIENTS.length, icon: 'groups', from: 'from-blue-500', to: 'to-indigo-600', sub: 'under care' },
-                        { label: 'Missed Dose', value: CAREGIVER_PATIENTS.filter(p => p.status === 'missed').length, icon: 'medication_liquid', from: 'from-rose-500', to: 'to-red-600', sub: 'need attention' },
-                        { label: 'Refill Due Soon', value: CAREGIVER_PATIENTS.filter(p => p.refillStatus === 'urgent' || p.refillStatus === 'warning').length, icon: 'autorenew', from: 'from-amber-500', to: 'to-orange-500', sub: 'action required' },
+                        { label: 'Total Patients', value: searchFiltered.length, icon: 'groups', from: 'from-blue-500', to: 'to-indigo-600', sub: 'under care' },
+                        { label: 'Missed Dose', value: searchFiltered.filter(p => p.status === 'missed').length, icon: 'medication_liquid', from: 'from-rose-500', to: 'to-red-600', sub: 'need attention' },
+                        { label: 'Refill Due Soon', value: searchFiltered.filter(p => p.refillStatus === 'urgent' || p.refillStatus === 'warning').length, icon: 'autorenew', from: 'from-amber-500', to: 'to-orange-500', sub: 'action required' },
                     ].map(k => (
                         <div key={k.label} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.from} ${k.to} flex items-center justify-center mb-3 shadow-sm`}>

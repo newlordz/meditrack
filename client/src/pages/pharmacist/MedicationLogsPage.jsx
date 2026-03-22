@@ -28,19 +28,20 @@ export default function MedicationLogsPage() {
     const [filterDate, setFilterDate] = useState('All Dates');
     const [filterAction, setFilterAction] = useState('All Actions');
 
-    const filtered = ALL_LOGS.filter(log => {
+    const baseFiltered = ALL_LOGS.filter(log => {
         const matchSearch = log.patient.toLowerCase().includes(search.toLowerCase())
             || log.drug.toLowerCase().includes(search.toLowerCase())
             || log.id.toLowerCase().includes(search.toLowerCase());
         const matchDate = filterDate === 'All Dates' || log.date === filterDate;
-        const matchAction = filterAction === 'All Actions' || log.action === filterAction;
-        return matchSearch && matchDate && matchAction;
+        return matchSearch && matchDate;
     });
 
-    const totalDispensed = ALL_LOGS.filter(l => l.action === 'Dispensed').length;
-    const totalFlagged = ALL_LOGS.filter(l => l.action === 'Flagged' || l.action === 'Under Review').length;
-    const totalRefills = ALL_LOGS.filter(l => l.action === 'Refill').length;
-    const verified = ALL_LOGS.filter(l => l.verified).length;
+    const filtered = baseFiltered.filter(log => filterAction === 'All Actions' || log.action === filterAction);
+
+    const totalDispensed = baseFiltered.filter(l => l.action === 'Dispensed').length;
+    const totalFlagged = baseFiltered.filter(l => l.action === 'Flagged' || l.action === 'Under Review').length;
+    const totalRefills = baseFiltered.filter(l => l.action === 'Refill').length;
+    const verified = filtered.filter(l => l.verified).length;
 
     const handleExport = () => {
         const header = ['Log ID', 'Date', 'Time', 'Patient', 'Drug', 'Qty', 'Action', 'Batch', 'Verified', 'Pharmacist'];
@@ -76,7 +77,7 @@ export default function MedicationLogsPage() {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
-                        { label: 'Total Logged', value: ALL_LOGS.length, icon: 'receipt_long', from: 'from-slate-500', to: 'to-slate-600', sub: 'all entries' },
+                        { label: 'Total Logged', value: baseFiltered.length, icon: 'receipt_long', from: 'from-slate-500', to: 'to-slate-600', sub: 'all entries' },
                         { label: 'Dispensed', value: totalDispensed, icon: 'check_circle', from: 'from-emerald-500', to: 'to-teal-600', sub: 'successful' },
                         { label: 'Flagged / Review', value: totalFlagged, icon: 'warning', from: 'from-rose-500', to: 'to-red-600', sub: 'needs attention' },
                         { label: 'Refills', value: totalRefills, icon: 'autorenew', from: 'from-blue-500', to: 'to-indigo-600', sub: 'renewals processed' },

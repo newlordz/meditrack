@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String
+  mustChangePassword Boolean  @default(true)
+  role               Role
+  firstName          String
+  lastName           String
+
+  // Relationships
+  patientInfo  Patient? @relation("PatientUser")
+  caregiving   Patient[] @relation("CaregiverUser")
+  patients     Patient[] @relation("DoctorUser")
+  prescriptions Prescription[] @relation("PrescriberUser")
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Patient {
+  id          String   @id @default(uuid())
+  pid         String   @unique // e.g., #P-001
+  
+  // Link to the user account for this patient
+  userId      String   @unique
+  user        User     @relation("PatientUser", fields: [userId], references: [id])
+  
+  // Link to primary caregiver
+  caregiverId String?
+  caregiver   User?    @relation("CaregiverUser", fields: [caregiverId], references: [id])
+
+  // Link to primary doctor
+  doctorId    String?
+  doctor      User?    @relation("DoctorUser", fields: [doctorId], references: [id])
+
+  dob         DateTime
+  bloodType   String
+  weight      String
+  height      String
+  conditions  String[]
+  allergies   String[]
+  
+  prescriptions Prescription[]
+  schedules     Schedule[]
+  logs          MedicationLog[]
+  escalations   Escalation[]
+  refillReq     RefillRequest[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Prescription {
+  id           String   @id @default(uuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  
+  prescriberId String
+  prescriber   User     @relation("PrescriberUser", fields: [prescriberId], references: [id])
+
+  drugName     String
+  dosage       String
+  frequency    String
+  instructions String?
+  
+  issuedAt     DateTime @default(now())
+  refillsRemaining Int @default(0)
+  status       PrescriptionStatus @default(ACTIVE)
+
+  schedules    Schedule[]
+  refillReqs   RefillRequest[]
+}
+
+model Schedule {
+  id             String   @id @default(uuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  
+  scheduledTime  String   // e.g., "08:00 AM"
+
+  logs           MedicationLog[]
+}
+
+model MedicationLog {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  
+  scheduleId  String
+  schedule    Schedule @relation(fields: [scheduleId], references: [id])
+
+  action      LogAction
+  loggedAt    DateTime @default(now())
+}
+
+model RefillRequest {
+  id             String   @id @default(uuid())
+  patientId      String
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  
+  pharmacyStatus RefillStatus @default(PENDING)
+  requestedAt    DateTime @default(now())
+}
+
+model Escalation {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  
+  category    EscalationCategory
+  triggerText String
+  severity    Severity
+  status      EscalationStatus @default(ACTIVE)
+  
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+}
+
+// Enums
+enum Role {
+  PATIENT
+  DOCTOR
+  PHARMACIST
+  CAREGIVER
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  COMPLETED
+  DISCONTINUED
+}
+
+enum LogAction {
+  TAKEN
+  MISSED
+  SKIPPED
+}
+
+enum RefillStatus {
+  PENDING
+  APPROVED
+  READY
+  REJECTED
+}
+
+enum EscalationCategory {
+  ADHERENCE
+  VITALS
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum EscalationStatus {
+  ACTIVE
+  RESOLVED
+  DISMISSED
+}

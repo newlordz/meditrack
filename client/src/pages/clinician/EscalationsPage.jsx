@@ -109,17 +109,18 @@ export default function EscalationsPage() {
         handleResolve(id, 'Outreach message sent to patient.');
     };
 
-    const activeEscalations = escalations.filter(e => e.status === 'active');
-    const dismissedEscalations = escalations.filter(e => e.status === 'dismissed');
+    const searchFiltered = escalations.filter(e => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return e.patient.toLowerCase().includes(q) || e.trigger.toLowerCase().includes(q) || e.category.toLowerCase().includes(q);
+    });
+
+    const activeEscalations = searchFiltered.filter(e => e.status === 'active');
+    const dismissedEscalations = searchFiltered.filter(e => e.status === 'dismissed');
     const criticalCount = activeEscalations.filter(e => e.severity === 'critical').length;
     const highCount = activeEscalations.filter(e => e.severity === 'high').length;
 
     const displayList = (activeTab === 'active' ? activeEscalations : dismissedEscalations)
-        .filter(e => {
-            if (!searchQuery) return true;
-            const q = searchQuery.toLowerCase();
-            return e.patient.toLowerCase().includes(q) || e.trigger.toLowerCase().includes(q) || e.category.toLowerCase().includes(q);
-        })
         .sort((a, b) => {
             const order = { critical: 0, high: 1, medium: 2 };
             return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);

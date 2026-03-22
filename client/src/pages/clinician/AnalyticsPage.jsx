@@ -143,7 +143,7 @@ export default function AnalyticsPage() {
                                 <span>100%</span><span>75%</span><span>50%</span>
                             </div>
                             {chartData.map((d, i) => (
-                                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 ml-8 group cursor-pointer">
+                                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 ml-8 group cursor-pointer h-full">
                                     <div className="w-full relative rounded-t-lg bg-primary/20 hover:bg-primary transition-colors"
                                         style={{ height: `${(d.val / maxVal) * 85}%` }}>
                                         <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold py-0.5 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">

@@ -118,22 +118,23 @@ export default function RefillRequestsPage() {
     };
 
     // Sorted: pending sorted by urgency (most critical first), others by date
-    const filteredRefills = refills
-        .filter(r => {
-            const matchSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                r.medication.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                r.pid.includes(searchQuery);
-            return matchSearch && r.status === activeTab;
-        })
+    const searchFiltered = refills.filter(r => {
+        return r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.medication.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.pid.includes(searchQuery);
+    });
+
+    const filteredRefills = searchFiltered
+        .filter(r => r.status === activeTab)
         .sort((a, b) => {
             if (activeTab === 'pending') return getUrgency(a.supplyDays).order - getUrgency(b.supplyDays).order;
             return 0;
         });
 
-    const pendingCount = refills.filter(r => r.status === 'pending').length;
-    const approvedCount = refills.filter(r => r.status === 'approved').length;
-    const criticalCount = refills.filter(r => r.status === 'pending' && r.supplyDays === 0).length;
-    const flaggedCount = refills.filter(r => r.status === 'pending' && r.flag).length;
+    const pendingCount = searchFiltered.filter(r => r.status === 'pending').length;
+    const approvedCount = searchFiltered.filter(r => r.status === 'approved').length;
+    const criticalCount = searchFiltered.filter(r => r.status === 'pending' && r.supplyDays === 0).length;
+    const flaggedCount = searchFiltered.filter(r => r.status === 'pending' && r.flag).length;
 
     return (
         <div className="flex flex-col min-h-screen relative bg-slate-50">

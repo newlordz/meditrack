@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { ROLE_ROUTES } from '../context/authConstants';
 import MFAInput from '../components/MFAInput';
+import { loginUser } from '../api/api';
 
-const ROLE_CARDS = [
+const MAIN_ROLE_CARDS = [
     { key: 'patient', label: 'Patient', desc: 'View records & appointments', icon: 'person' },
     { key: 'doctor', label: 'Doctor', desc: 'Manage patients & charts', icon: 'stethoscope' },
     { key: 'pharmacist', label: 'Pharmacist', desc: 'Fill prescriptions & inventory', icon: 'medication' },
@@ -20,36 +21,96 @@ export default function LoginPage() {
     const [mfaCode, setMfaCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    const [error, setError] = useState('');
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
+        setError('');
 
-        // Simulate API call
-        await new Promise((res) => setTimeout(res, 800));
+        const isAdminCredentials = email.trim() === '@admin';
 
-        login({
-            email,
-            name: email.includes('dr.') ? 'Dr. Sarah Chen' : 'Alex Johnson',
-            id: 'MT-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-            mfaVerified: mfaCode.length === 6,
-        });
+        // Admin credentials only work when Admin role card is selected
+        if (isAdminCredentials && selectedRole !== 'admin') {
+            setError('Please select the Admin role to use admin credentials.');
+            setIsLoading(false);
+            return;
+        }
 
-        setIsLoading(false);
-        navigate(ROLE_ROUTES[selectedRole]);
+        if (isAdminCredentials && selectedRole === 'admin') {
+            if (password !== 'admin123') {
+                setError('Invalid admin credentials. Please try again.');
+                setIsLoading(false);
+                return;
+            }
+            login({ email: '@admin', name: 'Admin (Receptionist)', id: 'ADMIN-001', role: 'admin' });
+            setIsLoading(false);
+            navigate('/admin/dashboard');
+            return;
+        }
+
+        try {
+            const userData = await loginUser(email, password);
+            
+            // Validate role if it's not admin
+            if (userData.role !== selectedRole && userData.role) {
+                const displayRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1);
+                setError(`This account is registered as a ${displayRole}. Please select the ${displayRole} role card.`);
+                setIsLoading(false);
+                return;
+            }
+
+            if (userData.status === 'inactive') {
+                setError('This account has been deactivated by an admin.');
+                setIsLoading(false);
+                return;
+            }
+
+            login({
+                email: userData.email,
+                name: userData.name,
+                id: userData.id,
+                userId: userData.userId,
+                role: userData.role || selectedRole,
+                mfaVerified: mfaCode.length === 6,
+                mustChangePassword: userData.mustChangePassword,
+            });
+            setIsLoading(false);
+            navigate(ROLE_ROUTES[selectedRole]);
+        } catch (err) {
+            setError(err.message || 'Invalid credentials. Please try again.');
+            setIsLoading(false);
+        }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-            <div className="max-w-[1100px] w-full grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-12 lg:gap-24 items-start">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-background relative">
+            <div className="max-w-[1100px] w-full grid grid-cols-1 lg:grid-cols-[1fr_450px] gap-8 lg:gap-16 items-start">
 
                 {/* Left: Branding & Role Selection */}
-                <div className="flex flex-col gap-6 py-4 animate-fade-in">
-                    {/* Logo */}
-                    <div className="flex items-center gap-3">
-                        <div className="bg-primary p-2.5 rounded-xl shadow-sm">
-                            <span className="material-symbols-outlined text-white text-[28px]">medical_services</span>
+                <div className="flex flex-col gap-4 py-2 animate-fade-in">
+                    {/* Logo and Admin */}
+                    <div className="flex items-center justify-between pr-2">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-primary p-2.5 rounded-xl shadow-sm">
+                                <span className="material-symbols-outlined text-white text-[28px]">medical_services</span>
+                            </div>
+                            <h1 className="text-[34px] font-bold tracking-tight text-primary">MediTrack</h1>
                         </div>
-                        <h1 className="text-[34px] font-bold tracking-tight text-primary">MediTrack</h1>
+                        
+                        {/* Admin Access Button */}
+                        <button
+                            onClick={() => setSelectedRole('admin')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all border ${
+                                selectedRole === 'admin'
+                                    ? 'bg-[#e8f0fe] text-primary border-primary shadow-sm'
+                                    : 'text-slate-500 bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm hover:text-primary'
+                            }`}
+                        >
+                            <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+                            <span className="hidden sm:inline">Admin Access</span>
+                            <span className="sm:hidden">Admin</span>
+                        </button>
                     </div>
 
                     {/* Welcome */}
@@ -62,13 +123,13 @@ export default function LoginPage() {
 
                     {/* Role Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                        {ROLE_CARDS.map((role) => {
+                        {MAIN_ROLE_CARDS.map((role) => {
                             const isSelected = selectedRole === role.key;
                             return (
                                 <button
                                     key={role.key}
                                     onClick={() => setSelectedRole(role.key)}
-                                    className={`flex items-start gap-4 p-4 rounded-xl text-left relative overflow-hidden transition-all duration-200 group
+                                    className={`flex items-start gap-3 p-3 rounded-xl text-left relative overflow-hidden transition-all duration-200 group
                                         ${isSelected
                                             ? 'bg-white border-2 border-primary shadow-md'
                                             : 'bg-white border border-slate-200 hover:border-blue-300 hover:shadow-sm'
@@ -96,7 +157,7 @@ export default function LoginPage() {
                     </div>
 
                     {/* Decorative Image Container */}
-                    <div className="hidden lg:block relative mt-8 rounded-2xl overflow-hidden shadow-sm border border-slate-200 h-[220px]">
+                    <div className="hidden lg:block relative mt-6 rounded-2xl overflow-hidden shadow-sm border border-slate-200 h-[220px]">
                         {/* Placeholder gradient mimicking the image */}
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-100 to-slate-50 opacity-80" />
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-[url('https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-multiply"></div>
@@ -110,16 +171,16 @@ export default function LoginPage() {
                 </div>
 
                 {/* Right: Login Form Wrapper */}
-                <div className="w-full flex flex-col gap-4 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+                <div className="w-full flex flex-col gap-3 animate-fade-in" style={{ animationDelay: '0.1s' }}>
                     {/* Main Auth Card */}
-                    <div className="bg-white p-6 sm:p-10 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200 relative overflow-hidden">
+                    <div className="bg-white p-5 sm:p-8 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200 relative overflow-hidden">
                         {/* Form Header */}
-                        <div className="mb-6">
+                        <div className="mb-4">
                             <h2 className="text-[24px] font-bold text-slate-900 mb-1 leading-tight">Secure Sign In</h2>
                             <p className="text-[14px] text-slate-500 leading-normal">Enter your credentials to continue.</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             {/* Email */}
                             <div>
                                 <label className="block text-[14px] font-semibold text-slate-700 mb-1.5" htmlFor="login-email">
@@ -135,7 +196,7 @@ export default function LoginPage() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="e.g. dr.smith@meditrack.com"
-                                        className="w-full pl-10 pr-4 h-[46px] rounded-xl border border-slate-200 bg-slate-50
+                                        className="w-full pl-10 pr-4 h-[42px] rounded-xl border border-slate-200 bg-slate-50
                                             focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none placeholder:text-slate-400 leading-normal"
                                     />
                                 </div>
@@ -157,7 +218,7 @@ export default function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="••••••••"
-                                        className="w-full pl-10 pr-10 h-[46px] rounded-xl border border-slate-200 bg-slate-50
+                                        className="w-full pl-10 pr-10 h-[42px] rounded-xl border border-slate-200 bg-slate-50
                                             focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none tracking-widest placeholder:tracking-normal placeholder:text-slate-400 leading-normal"
                                     />
                                     <button
@@ -186,12 +247,20 @@ export default function LoginPage() {
                                 </div>
                             </div>
 
+                            {/* Error Message */}
+                            {error && (
+                                <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                                    <span className="material-symbols-outlined text-rose-500 text-[18px] flex-shrink-0">error</span>
+                                    <p className="text-[13px] text-rose-700 font-medium">{error}</p>
+                                </div>
+                            )}
+
                             {/* Submit Button */}
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full bg-[#0056b2] hover:bg-[#004494] text-white font-bold h-[50px] px-4 rounded-xl
-                                    transition-all shadow-lg shadow-[#0056b2]/25 mt-4 flex items-center justify-center gap-2 text-[15px]
+                                className="w-full bg-[#0056b2] hover:bg-[#004494] text-white font-bold h-[44px] px-4 rounded-xl
+                                    transition-all shadow-lg shadow-[#0056b2]/25 mt-3 flex items-center justify-center gap-2 text-[15px]
                                     disabled:opacity-70 disabled:cursor-not-allowed leading-normal"
                             >
                                 {isLoading ? (
@@ -209,7 +278,7 @@ export default function LoginPage() {
                         </form>
 
                         {/* Auth Form Footer Links */}
-                        <div className="mt-8 text-center">
+                        <div className="mt-5 text-center">
                             <p className="text-[11px] text-slate-400 mb-2 leading-normal">© 2024 MediTrack Solutions. All rights reserved.</p>
                             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
                                 <a href="#" className="hover:text-slate-600 transition-colors font-medium">Privacy Policy</a>
@@ -222,7 +291,7 @@ export default function LoginPage() {
                     </div>
 
                     {/* External Security Note */}
-                    <div className="px-5 py-4 bg-[#f8fafc] rounded-2xl border border-slate-200 flex items-start sm:items-center gap-3">
+                    <div className="px-4 py-3 bg-[#f8fafc] rounded-2xl border border-slate-200 flex items-start sm:items-center gap-3">
                         <span className="material-symbols-outlined text-[#0056b2] text-[20px] flex-shrink-0">info</span>
                         <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
                             This portal uses 256-bit encryption. For security reasons, please log out after your session.

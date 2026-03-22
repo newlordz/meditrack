@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { SHARED_PATIENTS, PRESCRIPTIONS } from '../../data/mockData';
+import { useApi } from '../../hooks/useApi';
+import { getPatients } from '../../api/api';
 
 const STATUS_CFG = {
     active: { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', label: 'Active' },
@@ -7,23 +8,32 @@ const STATUS_CFG = {
     critical: { badge: 'bg-rose-100 text-rose-700', dot: 'bg-rose-500', label: 'Critical' },
 };
 
+function getPharmStatus(patient) {
+    if (patient.activeEscalations > 0) return 'critical';
+    if (patient.meds === 0) return 'flagged';
+    return 'active';
+}
+
 export default function PatientRecordsPage() {
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [selectedPatient, setSelectedPatient] = useState(null);
+    const { data: patients } = useApi(getPatients);
 
-    const filtered = SHARED_PATIENTS.filter(p => {
-        const matchSearch = p.name.toLowerCase().includes(search.toLowerCase())
-            || (p.pid || p.id || '').toLowerCase().includes(search.toLowerCase());
-        const matchStatus = filterStatus === 'all' || p.pharmStatus === filterStatus;
-        return matchSearch && matchStatus;
+    const allPatients = (patients || []).map(p => ({ ...p, pharmStatus: getPharmStatus(p) }));
+
+    const searchFiltered = allPatients.filter(p => {
+        return p.name.toLowerCase().includes(search.toLowerCase())
+            || p.pid.toLowerCase().includes(search.toLowerCase());
     });
 
-    const rxList = selectedPatient ? (PRESCRIPTIONS[selectedPatient.id] ?? []) : [];
+    const filtered = searchFiltered.filter(p => filterStatus === 'all' || p.pharmStatus === filterStatus);
 
-    const totalActive = SHARED_PATIENTS.filter(p => p.pharmStatus === 'active').length;
-    const totalFlagged = SHARED_PATIENTS.filter(p => p.pharmStatus === 'flagged').length;
-    const totalCritical = SHARED_PATIENTS.filter(p => p.pharmStatus === 'critical').length;
+    const rxList = selectedPatient?.prescriptions ?? [];
+
+    const totalActive = searchFiltered.filter(p => p.pharmStatus === 'active').length;
+    const totalFlagged = searchFiltered.filter(p => p.pharmStatus === 'flagged').length;
+    const totalCritical = searchFiltered.filter(p => p.pharmStatus === 'critical').length;
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
@@ -41,7 +51,7 @@ export default function PatientRecordsPage() {
                 {/* Summary Pills */}
                 <div className="flex flex-wrap gap-3">
                     {[
-                        { label: 'All', count: SHARED_PATIENTS.length, key: 'all', color: 'bg-slate-100 text-slate-700' },
+                        { label: 'All', count: searchFiltered.length, key: 'all', color: 'bg-slate-100 text-slate-700' },
                         { label: 'Active', count: totalActive, key: 'active', color: 'bg-emerald-100 text-emerald-700' },
                         { label: 'Flagged', count: totalFlagged, key: 'flagged', color: 'bg-amber-100 text-amber-700' },
                         { label: 'Critical', count: totalCritical, key: 'critical', color: 'bg-rose-100 text-rose-700' },

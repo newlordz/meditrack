@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useApi } from '../../hooks/useApi';
+import { getEscalations, getRefillRequests } from '../../api/api';
 
 const INIT_PENDING = [
     { id: 'RX-0041', patient: 'Nana Ama Boateng', initials: 'NB', drug: 'Atenolol 25mg', qty: 30, doctor: 'Dr. Mensah', urgency: 'urgent', instructions: 'Take 1 tablet daily in the morning' },
@@ -58,6 +60,10 @@ export default function PharmacistDashboardPage() {
     const [rejectReason, setRejectReason] = useState('');
     const [toast, setToast] = useState(null);
 
+    // Live API Data for Summary Cards
+    const { data: rawEscalations } = useApi(getEscalations);
+    const { data: rawRefills } = useApi(getRefillRequests);
+
     useEffect(() => {
         const load = () => {
             const saved = localStorage.getItem('meditrack_pending_prescriptions');
@@ -114,7 +120,12 @@ export default function PharmacistDashboardPage() {
 
     const urgentCount = pending.filter(r => r.urgency === 'urgent').length;
     const reviewCount = pending.filter(r => r.urgency === 'review').length;
-    const activeConflicts = conflicts.filter(c => c.status !== 'resolved').length;
+    
+    // Compute Live Numbers for KPI Cards
+    const livePendingCount = rawRefills ? rawRefills.filter(r => r.pharmacyStatus === 'PENDING').length : pending.length;
+    const liveUrgentCount = rawRefills ? rawRefills.filter(r => r.pharmacyStatus === 'PENDING' && r.urgency === 'urgent').length : urgentCount;
+    const liveConflictsCount = rawEscalations ? rawEscalations.filter(e => e.status === 'ACTIVE').length : conflicts.filter(c => c.status !== 'resolved').length;
+    
     const verifiedToday = activity.filter(a => a.status === 'done').length + dispensed.size;
 
     return (
@@ -232,7 +243,7 @@ export default function PharmacistDashboardPage() {
                         <div>
                             <p className="text-white/70 text-sm">Thursday, 5 March 2026</p>
                             <h2 className="text-2xl font-black mt-1">Good morning, Pharmacist 👋</h2>
-                            <p className="text-white/80 text-sm mt-1">You have <span className="font-black text-white">{pending.length} pending dispenses</span> and <span className="font-black text-white">{activeConflicts} active conflict{activeConflicts !== 1 ? 's' : ''}</span> today.</p>
+                            <p className="text-white/80 text-sm mt-1">You have <span className="font-black text-white">{livePendingCount} pending dispenses</span> and <span className="font-black text-white">{liveConflictsCount} active conflict{liveConflictsCount !== 1 ? 's' : ''}</span> today.</p>
                         </div>
                         <div className="hidden sm:flex w-16 h-16 rounded-2xl bg-white/15 items-center justify-center">
                             <span className="material-symbols-outlined text-[36px] text-white/80">local_pharmacy</span>
@@ -244,8 +255,8 @@ export default function PharmacistDashboardPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                         { label: 'Verified Today', value: verifiedToday, icon: 'verified', from: 'from-emerald-500', to: 'to-teal-600', sub: 'dispensing actions', link: '/pharmacist/logs' },
-                        { label: 'Pending Queue', value: pending.length, icon: 'pending_actions', from: 'from-amber-500', to: 'to-orange-500', sub: `${urgentCount} urgent`, link: '/pharmacist/pending' },
-                        { label: 'Drug Conflicts', value: activeConflicts, icon: 'warning', from: 'from-rose-500', to: 'to-red-600', sub: 'unresolved alerts', link: '/pharmacist/conflicts' },
+                        { label: 'Pending Queue', value: livePendingCount, icon: 'pending_actions', from: 'from-amber-500', to: 'to-orange-500', sub: `${liveUrgentCount} urgent`, link: '/pharmacist/pending' },
+                        { label: 'Drug Conflicts', value: liveConflictsCount, icon: 'warning', from: 'from-rose-500', to: 'to-red-600', sub: 'unresolved alerts', link: '/pharmacist/conflicts' },
                         { label: 'Needs Review', value: reviewCount, icon: 'rate_review', from: 'from-violet-500', to: 'to-purple-600', sub: 'manual checks', link: '/pharmacist/records' },
                     ].map(k => (
                         <Link key={k.label} to={k.link} className="block bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer">

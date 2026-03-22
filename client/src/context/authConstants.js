@@ -5,6 +5,7 @@ export const ROLES = {
     DOCTOR: 'doctor',
     PHARMACIST: 'pharmacist',
     CAREGIVER: 'caregiver',
+    ADMIN: 'admin',
 };
 
 export const ROLE_ROUTES = {
@@ -12,6 +13,7 @@ export const ROLE_ROUTES = {
     [ROLES.DOCTOR]: '/clinician/dashboard',
     [ROLES.PHARMACIST]: '/pharmacist/conflicts',
     [ROLES.CAREGIVER]: '/caregiver/dashboard',
+    [ROLES.ADMIN]: '/admin/dashboard',
 };
 
 export const AuthContext = createContext(null);

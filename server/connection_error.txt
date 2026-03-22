@@ -1,0 +1,34 @@
+﻿Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "meditrack", schema "public" at "localhost:5432"
+
+node.exe : Error: P1000: 
+Authentication failed 
+against database server 
+at `localhost`, the 
+provided database 
+credentials for 
+`postgres` are not valid.
+At line:1 char:1
++ & "c:\program 
+files\nodejs/node.exe" 
+"c:\program 
+files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (E  
+  rror: P1000: A... are   
+  not valid.:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+
+Please make sure to 
+provide valid database 
+credentials for the 
+database server at 
+`localhost`.

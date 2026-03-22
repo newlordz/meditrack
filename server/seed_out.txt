@@ -1,0 +1,5 @@
+﻿≡ƒî▒ Seeding database...
+Γ£à Database seeded successfully!
+   8 patients created
+   Prescriptions and schedules created for Ama Johanson
+   Escalation created for John Doe

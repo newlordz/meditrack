@@ -93,17 +93,17 @@ export default function PendingDispensesPage() {
         setRejectReason('');
     };
 
-    const filtered = pending.filter(rx => {
-        const matchesSearch = rx.patient.toLowerCase().includes(search.toLowerCase()) ||
+    const searchFiltered = pending.filter(rx => {
+        return rx.patient.toLowerCase().includes(search.toLowerCase()) ||
             rx.drug.toLowerCase().includes(search.toLowerCase()) ||
             rx.doctor.toLowerCase().includes(search.toLowerCase()) ||
             rx.id.toLowerCase().includes(search.toLowerCase());
-        const matchesUrgency = urgencyFilter === 'all' || rx.urgency === urgencyFilter;
-        return matchesSearch && matchesUrgency;
     });
 
-    const urgentCount = pending.filter(r => r.urgency === 'urgent').length;
-    const reviewCount = pending.filter(r => r.urgency === 'review').length;
+    const filtered = searchFiltered.filter(rx => urgencyFilter === 'all' || rx.urgency === urgencyFilter);
+
+    const urgentCount = searchFiltered.filter(r => r.urgency === 'urgent').length;
+    const reviewCount = searchFiltered.filter(r => r.urgency === 'review').length;
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
@@ -246,10 +246,10 @@ export default function PendingDispensesPage() {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
-                        { label: 'Pending Queue', value: pending.length, icon: 'pending_actions', from: 'from-slate-500', to: 'to-slate-700', sub: 'awaiting review' },
+                        { label: 'Pending Queue', value: searchFiltered.length, icon: 'pending_actions', from: 'from-slate-500', to: 'to-slate-700', sub: 'awaiting review' },
                         { label: 'Urgent', value: urgentCount, icon: 'emergency', from: 'from-rose-500', to: 'to-red-600', sub: 'immediate action' },
                         { label: 'Needs Review', value: reviewCount, icon: 'rate_review', from: 'from-amber-500', to: 'to-orange-500', sub: 'manual check required' },
-                        { label: 'Normal Priority', value: pending.filter(r => r.urgency === 'normal').length, icon: 'check_circle', from: 'from-emerald-500', to: 'to-teal-600', sub: 'standard dispense' },
+                        { label: 'Normal Priority', value: searchFiltered.filter(r => r.urgency === 'normal').length, icon: 'check_circle', from: 'from-emerald-500', to: 'to-teal-600', sub: 'standard dispense' },
                     ].map(k => (
                         <div key={k.label} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.from} ${k.to} flex items-center justify-center mb-3 shadow-sm`}>
@@ -289,7 +289,7 @@ export default function PendingDispensesPage() {
 
                 {/* ── Summary Bar ──────────────────────────────────── */}
                 <div className="text-sm text-slate-500 font-medium">
-                    Showing <span className="font-bold text-slate-800">{filtered.length}</span> of <span className="font-bold text-slate-800">{pending.length}</span> pending prescriptions
+                    Showing <span className="font-bold text-slate-800">{filtered.length}</span> of <span className="font-bold text-slate-800">{searchFiltered.length}</span> pending prescriptions
                 </div>
 
                 {/* ── Table / List ─────────────────────────────────── */}
@@ -298,7 +298,7 @@ export default function PendingDispensesPage() {
                         <div className="text-center py-16 text-slate-400">
                             <span className="material-symbols-outlined text-5xl mb-3 block">check_circle</span>
                             <p className="text-base font-semibold">
-                                {pending.length === 0 ? 'All caught up! No pending dispenses.' : 'No results match your search or filter.'}
+                                {searchFiltered.length === 0 ? 'All caught up! No pending dispenses.' : 'No results match your search or filter.'}
                             </p>
                         </div>
                     ) : (

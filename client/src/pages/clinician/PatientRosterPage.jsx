@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SHARED_PATIENTS, COMMON_DRUGS, COMMON_INSTRUCTIONS, COMMON_CONDITIONS } from '../../data/mockData';
+import { COMMON_DRUGS, COMMON_INSTRUCTIONS, COMMON_CONDITIONS } from '../../data/mockData';
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getPatients } from '../../api/api';
 
 
 
@@ -39,14 +42,7 @@ function AlertBadge({ type, text }) {
 
 export default function PatientRosterPage() {
     const navigate = useNavigate();
-    // Reactive Tabs
-    const tabCounts = {
-        'all': SHARED_PATIENTS.length,
-        'waiting': SHARED_PATIENTS.filter(p => p.queueStatus === 'waiting').length,
-        'in-consultation': SHARED_PATIENTS.filter(p => p.queueStatus === 'in-consultation').length,
-        'completed': SHARED_PATIENTS.filter(p => p.queueStatus === 'completed').length
-    };
-
+    const { user } = useAuth();
     const TABS = [
         { id: 'waiting', label: 'Waiting' },
         { id: 'in-consultation', label: 'In Consultation' },
@@ -84,12 +80,25 @@ export default function PatientRosterPage() {
 
     // Live wait-time clock — joinedAt computed once at init
     const [now, setNow] = useState(Date.now); // lazy: calls Date.now() once
+    const { data: rawPatients } = useApi(() => getPatients(user?.userId || user?.id), [user?.userId, user?.id]);
+    // Adapt API shape to what the roster UI expects
+    const SHARED_PATIENTS = (rawPatients || []).map(p => ({
+        ...p,
+        condition: p.conditions?.join(', ') || 'Unknown',
+        adherence: 75,  // placeholder until logs are aggregated
+        alertType: p.activeEscalations > 0 ? 'critical' : 'stable',
+        alertText: p.activeEscalations > 0 ? `Critical: ${p.activeEscalations} escalation(s)` : 'Stable',
+        refillStatus: 'normal',
+        refillText: 'Refill in 10 days',
+        queueStatus: 'waiting',
+        waitMinutes: 10,
+        needsReview: p.activeEscalations > 0,
+        pendingSync: false,
+        status: p.activeEscalations > 0 ? 'critical' : 'on-track',
+    }));
+
     const [joinedAt] = useState(() => {
-        const base = Date.now();
         const map = {};
-        SHARED_PATIENTS.forEach(p => {
-            map[p.id] = base - (p.waitMinutes || 0) * 60 * 1000;
-        });
         return map;
     });
 
@@ -177,11 +186,20 @@ export default function PatientRosterPage() {
         setActiveModal(null);
     };
 
-    const filteredPatients = SHARED_PATIENTS.filter((p) => {
-        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const searchFiltered = SHARED_PATIENTS.filter((p) => {
+        return p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.pid.includes(searchQuery) ||
             p.condition.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
+    const tabCounts = {
+        'all': searchFiltered.length,
+        'waiting': searchFiltered.filter(p => p.queueStatus === 'waiting').length,
+        'in-consultation': searchFiltered.filter(p => p.queueStatus === 'in-consultation').length,
+        'completed': searchFiltered.filter(p => p.queueStatus === 'completed').length
+    };
+
+    const filteredPatients = searchFiltered.filter((p) => {
         let matchesTab = true;
         if (activeTab === 'waiting') {
             matchesTab = p.queueStatus === 'waiting';
@@ -194,7 +212,7 @@ export default function PatientRosterPage() {
         const matchesReview = filters.needsReview ? p.needsReview : true;
         const matchesSync = filters.pendingSync ? p.pendingSync : true;
 
-        return matchesSearch && matchesTab && matchesReview && matchesSync;
+        return matchesTab && matchesReview && matchesSync;
     });
 
     const totalPages = Math.max(1, Math.ceil(filteredPatients.length / itemsPerPage));

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import LoginPage from './pages/LoginPage';
@@ -25,11 +25,19 @@ import CaregiverPatientsPage from './pages/caregiver/CaregiverPatientsPage';
 import CaregiverAlertsPage from './pages/caregiver/CaregiverAlertsPage';
 import CaregiverSettingsPage from './pages/caregiver/CaregiverSettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import ForcePasswordResetPage from './pages/ForcePasswordResetPage';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location }} />;
+
+  if (user?.mustChangePassword && location.pathname !== '/force-password-reset') {
+    return <Navigate to="/force-password-reset" replace />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     return <Navigate to="/login" replace />;
   }
@@ -41,9 +49,19 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to={getDefaultRoute()} replace /> : <LoginPage />}
+      />
+
+      <Route 
+        path="/force-password-reset" 
+        element={
+          <ProtectedRoute>
+            <ForcePasswordResetPage />
+          </ProtectedRoute>
+        } 
       />
 
       {/* Patient Routes */}
@@ -81,6 +99,16 @@ function AppRoutes() {
         <Route path="/caregiver/alerts" element={<CaregiverAlertsPage />} />
         <Route path="/caregiver/settings" element={<CaregiverSettingsPage />} />
       </Route>
+
+      {/* Admin Routes */}
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboardPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />

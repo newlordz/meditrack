@@ -109,12 +109,12 @@ export default function ReportsPage() {
     const handleDelete = (id) => setReports(prev => prev.filter(r => r.id !== id));
     const handleToggleArchive = (id) => setReports(prev => prev.map(r => r.id === id ? { ...r, archived: !r.archived } : r));
 
-    const displayReports = reports
-        .filter(r => showArchive ? r.archived : !r.archived)
-        .filter(r => !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase()));
+    const searchFiltered = reports.filter(r => !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const recentCount = reports.filter(r => !r.archived).length;
-    const archivedCount = reports.filter(r => r.archived).length;
+    const displayReports = searchFiltered.filter(r => showArchive ? r.archived : !r.archived);
+
+    const recentCount = searchFiltered.filter(r => !r.archived).length;
+    const archivedCount = searchFiltered.filter(r => r.archived).length;
 
     return (
         <div className="flex flex-col min-h-screen relative bg-slate-50">

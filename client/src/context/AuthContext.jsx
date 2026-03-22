@@ -12,10 +12,19 @@ export function AuthProvider({ children }) {
     const [selectedRole, setSelectedRole] = useState(ROLES.DOCTOR);
 
     const login = useCallback((userData) => {
-        const fullUser = { ...userData, role: selectedRole };
+        const fullUser = { ...userData, role: userData.role || selectedRole };
         setUser(fullUser);
         localStorage.setItem('meditrack_user', JSON.stringify(fullUser));
     }, [selectedRole]);
+
+    const updateUser = useCallback((updates) => {
+        setUser(prev => {
+            if (!prev) return null;
+            const updatedUser = { ...prev, ...updates };
+            localStorage.setItem('meditrack_user', JSON.stringify(updatedUser));
+            return updatedUser;
+        });
+    }, []);
 
     const logout = useCallback(() => {
         setUser(null);
@@ -34,6 +43,7 @@ export function AuthProvider({ children }) {
             setSelectedRole,
             login,
             logout,
+            updateUser,
             getDefaultRoute,
             isAuthenticated: !!user,
             ROLES,

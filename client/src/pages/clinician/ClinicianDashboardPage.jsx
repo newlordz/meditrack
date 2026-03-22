@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SHARED_PATIENTS } from '../../data/mockData';
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getPatients, getEscalations, getRefillRequests } from '../../api/api';
 
-const STATS = [
-    { label: 'Active Patients', value: 42, icon: 'groups', trend: '+3', trendUp: true, sub: 'this week', gradient: 'from-blue-500 to-blue-600', to: '/clinician/roster' },
-    { label: 'Critical Alerts', value: 3, icon: 'notifications_active', trend: '2 urgent', trendUp: false, sub: 'require action', gradient: 'from-rose-500 to-rose-600', to: '/clinician/escalations' },
-    { label: 'Refill Requests', value: 8, icon: 'medication', trend: '3 urgent', trendUp: false, sub: 'pending approval', gradient: 'from-amber-500 to-orange-500', to: '/clinician/refills' },
-    { label: 'Avg. Adherence', value: '76%', icon: 'analytics', trend: '+5%', trendUp: true, sub: 'vs last week', gradient: 'from-emerald-500 to-teal-500', to: '/clinician/analytics' },
-];
+// STATS moved inside component to use live data
 
 const PENDING_REFILLS = [
     { id: 'RX-041', patient: 'Nana Ama Boateng', drug: 'Atenolol 25mg', urgency: 'urgent', daysLeft: 2 },
@@ -54,10 +52,40 @@ const ADHERENCE_DATA = [
 ];
 
 export default function ClinicianDashboardPage() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [approvedRefills, setApprovedRefills] = useState(new Set());
 
-    const highRiskPatients = SHARED_PATIENTS.filter(p => p.alertType === 'critical' || p.alertType === 'warning').slice(0, 4);
+    // Live API Data for Summary Cards
+    const { data: rawPatients } = useApi(() => getPatients(user?.userId || user?.id), [user?.userId, user?.id]);
+    const { data: rawEscalations } = useApi(() => getEscalations(user?.userId || user?.id), [user?.userId, user?.id]);
+    const { data: rawRefills } = useApi(() => getRefillRequests(user?.userId || user?.id), [user?.userId, user?.id]);
+
+    const patientsCount = rawPatients ? rawPatients.length : 0;
+    const escalationsCount = rawEscalations ? rawEscalations.filter(e => e.status === 'ACTIVE').length : 0;
+    const criticalEscalations = rawEscalations ? rawEscalations.filter(e => e.status === 'ACTIVE' && e.severity === 'CRITICAL').length : 0;
+    const refillsCount = rawRefills ? rawRefills.filter(r => r.pharmacyStatus === 'PENDING').length : 0;
+
+    const stats = [
+        { label: 'Active Patients', value: patientsCount, icon: 'groups', trend: 'Live', trendUp: true, sub: 'total assigned', gradient: 'from-blue-500 to-blue-600', to: '/clinician/roster' },
+        { label: 'Active Alerts', value: escalationsCount, icon: 'notifications_active', trend: `${criticalEscalations} critical`, trendUp: false, sub: 'require action', gradient: 'from-rose-500 to-rose-600', to: '/clinician/escalations' },
+        { label: 'Refill Requests', value: refillsCount, icon: 'medication', trend: 'Pending', trendUp: false, sub: 'awaiting approval', gradient: 'from-amber-500 to-orange-500', to: '/clinician/refills' },
+        { label: 'Avg. Adherence', value: '76%', icon: 'analytics', trend: '+5%', trendUp: true, sub: 'mock data', gradient: 'from-emerald-500 to-teal-500', to: '/clinician/analytics' },
+    ];
+
+    // Live derived lists replacing mock constant arrays
+    const highRiskPatients = (rawPatients || [])
+        .filter(p => p.activeEscalations > 0)
+        .map(p => ({
+            ...p,
+            adherence: 75, // static mockup for now until logs module is completed
+            alertType: 'critical' // all escalations are treated as critical in UI for now
+        }))
+        .slice(0, 4);
+
+    const livePendingRefills = (rawRefills || [])
+        .filter(r => r.pharmacyStatus === 'PENDING')
+        .slice(0, 4);
 
     const approveRefill = (id) => {
         setApprovedRefills(prev => new Set([...prev, id]));
@@ -80,7 +108,7 @@ export default function ClinicianDashboardPage() {
                     <div>
                         <p className="text-blue-200 text-sm font-semibold uppercase tracking-widest mb-1">{today}</p>
                         <h2 className="text-3xl font-black text-white tracking-tight">Clinical Dashboard</h2>
-                        <p className="text-blue-200 mt-1">Good morning, <span className="text-white font-bold">Dr. Chen</span> — here's your daily overview.</p>
+                        <p className="text-blue-200 mt-1">Good morning, <span className="text-white font-bold">{user?.name || 'Doctor'}</span> — here's your daily overview.</p>
                     </div>
                     <Link
                         to="/clinician/escalations"
@@ -94,7 +122,7 @@ export default function ClinicianDashboardPage() {
 
                 {/* Stat Cards — overlapping the banner bottom */}
                 <div className="relative mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {STATS.map(s => (
+                    {stats.map(s => (
                         <Link key={s.label} to={s.to} className="block bg-white rounded-2xl p-5 shadow-lg border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
                             <div className="flex items-start justify-between mb-3">
                                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center shadow-sm`}>
@@ -218,7 +246,7 @@ export default function ClinicianDashboardPage() {
                                 </div>
                                 <div>
                                     <h3 className="font-black text-slate-900 text-sm">Pending Refills</h3>
-                                    <p className="text-[11px] text-slate-400">{PENDING_REFILLS.length} awaiting approval</p>
+                                    <p className="text-[11px] text-slate-400">{livePendingRefills.length} awaiting approval</p>
                                 </div>
                             </div>
                             <Link to="/clinician/refills" className="text-xs text-primary font-bold hover:underline flex items-center gap-0.5">
@@ -226,9 +254,12 @@ export default function ClinicianDashboardPage() {
                             </Link>
                         </div>
                         <div className="divide-y divide-slate-100">
-                            {PENDING_REFILLS.map(rx => {
+                            {livePendingRefills.map(rx => {
                                 const approved = approvedRefills.has(rx.id);
-                                const cfg = URGENCY_CFG[rx.urgency];
+                                // Simple mock logic to assign 'urgent' or 'routine' based on dummy dates for now
+                                const urgency = 'urgent';
+                                const daysLeft = 2;
+                                const cfg = URGENCY_CFG[urgency];
                                 return (
                                     <div key={rx.id} className={`flex items-center justify-between px-6 py-3.5 gap-3 transition-all ${approved ? 'opacity-40 bg-emerald-50' : 'hover:bg-slate-50'}`}>
                                         <div className="flex items-center gap-3 min-w-0">
@@ -236,13 +267,13 @@ export default function ClinicianDashboardPage() {
                                                 <span className="material-symbols-outlined text-primary text-[16px]">medication</span>
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-sm font-bold text-slate-900 truncate">{rx.patient}</p>
-                                                <p className="text-xs text-slate-400 truncate">{rx.drug}</p>
-                                                <p className={`text-[11px] font-bold mt-0.5 ${cfg.days}`}>{rx.daysLeft}d remaining</p>
+                                                <p className="text-sm font-bold text-slate-900 truncate">{rx.name}</p>
+                                                <p className="text-xs text-slate-400 truncate">{rx.medication} {rx.dosage}</p>
+                                                <p className={`text-[11px] font-bold mt-0.5 ${cfg.days}`}>{daysLeft}d remaining</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            <span className={`text-[10px] font-bold uppercase border px-2 py-0.5 rounded-full ${cfg.pill}`}>{rx.urgency}</span>
+                                            <span className={`text-[10px] font-bold uppercase border px-2 py-0.5 rounded-full ${cfg.pill}`}>{urgency}</span>
                                             <button
                                                 onClick={() => approveRefill(rx.id)}
                                                 disabled={approved}
