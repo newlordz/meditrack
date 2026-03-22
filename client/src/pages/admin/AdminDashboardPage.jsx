@@ -50,6 +50,7 @@ export default function AdminDashboardPage() {
     const [confirmDeleteStaff, setConfirmDeleteStaff] = useState(null);
 
     const [formLoading, setFormLoading] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     const handleDeletePatient = async () => {
         setConfirmDeletePatient(null);
@@ -154,9 +155,14 @@ export default function AdminDashboardPage() {
                 </div>
             )}
 
+            {/* Mobile Sidebar Overlay */}
+            {mobileMenuOpen && (
+                <div className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
+            )}
+
             {/* Sidebar */}
-            <div className="w-64 bg-white border-r border-slate-100 flex flex-col shadow-sm flex-shrink-0 h-screen sticky top-0">
-                <div className="p-6 border-b border-slate-100">
+            <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-100 flex flex-col shadow-2xl lg:shadow-sm lg:relative lg:translate-x-0 transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="bg-amber-500 p-2.5 rounded-xl shadow-sm">
                             <span className="material-symbols-outlined text-white text-[22px]">admin_panel_settings</span>
@@ -166,13 +172,20 @@ export default function AdminDashboardPage() {
                             <p className="text-[11px] text-amber-600 font-bold tracking-wide uppercase">Admin Portal</p>
                         </div>
                     </div>
+                    {/* Close button inside sidebar on mobile */}
+                    <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-600 rounded-lg transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">close</span>
+                    </button>
                 </div>
 
                 <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
                     {NAV_ITEMS.map(item => (
                         <button
                             key={item.id}
-                            onClick={() => setActiveSection(item.id)}
+                            onClick={() => {
+                                setActiveSection(item.id);
+                                setMobileMenuOpen(false);
+                            }}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-left transition-all ${activeSection === item.id ? 'bg-amber-50 text-amber-600' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
                         >
                             <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -197,7 +210,23 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 p-8 overflow-y-auto">
+            <div className="flex-1 p-4 lg:p-8 overflow-y-auto h-screen w-full">
+
+                {/* Mobile Header */}
+                <div className="lg:hidden flex items-center justify-between mb-6 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-amber-500 p-2 rounded-lg shadow-sm">
+                            <span className="material-symbols-outlined text-white text-[18px]">admin_panel_settings</span>
+                        </div>
+                        <div>
+                            <h1 className="font-black text-slate-900 text-sm leading-tight">MediTrack</h1>
+                            <p className="text-[10px] text-amber-600 font-bold uppercase">Admin</p>
+                        </div>
+                    </div>
+                    <button onClick={() => setMobileMenuOpen(true)} className="p-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[20px]">menu</span>
+                    </button>
+                </div>
 
                 {/* DASHBOARD */}
                 {activeSection === 'dashboard' && (
@@ -314,15 +343,16 @@ export default function AdminDashboardPage() {
 
                         {/* Staff Table */}
                         {staffRoleFilter !== 'patient' && (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <h3 className="font-black text-slate-900">Staff Members</h3>
-                                    <button onClick={() => setActiveSection('add-user')} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors">
-                                        <span className="material-symbols-outlined text-[16px]">person_add</span>
-                                        Add User
-                                    </button>
-                                </div>
-                                <div className="divide-y divide-slate-50">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                                <div className="min-w-[700px]">
+                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                        <h3 className="font-black text-slate-900">Staff Members</h3>
+                                        <button onClick={() => setActiveSection('add-user')} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors">
+                                            <span className="material-symbols-outlined text-[16px]">person_add</span>
+                                            Add User
+                                        </button>
+                                    </div>
+                                    <div className="divide-y divide-slate-50">
                                     {staff
                                         .filter(s => staffRoleFilter === 'all' || s.role === staffRoleFilter)
                                         .filter(s => !staffSearch || s.name.toLowerCase().includes(staffSearch.toLowerCase()) || s.email.toLowerCase().includes(staffSearch.toLowerCase()))
@@ -356,21 +386,23 @@ export default function AdminDashboardPage() {
                                             </div>
                                         </div>
                                     ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {/* Patient Table */}
                         {(staffRoleFilter === 'all' || staffRoleFilter === 'patient') && (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <h3 className="font-black text-slate-900">Registered Patients</h3>
-                                    <p className="text-xs text-rose-500 font-semibold flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-[14px]">warning</span>
-                                        Delete is permanent
-                                    </p>
-                                </div>
-                                <div className="divide-y divide-slate-50">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                                <div className="min-w-[700px]">
+                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                        <h3 className="font-black text-slate-900">Registered Patients</h3>
+                                        <p className="text-xs text-rose-500 font-semibold flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[14px]">warning</span>
+                                            Delete is permanent
+                                        </p>
+                                    </div>
+                                    <div className="divide-y divide-slate-50">
                                     {patients
                                         .filter(p => !staffSearch || p.name.toLowerCase().includes(staffSearch.toLowerCase()) || p.email.toLowerCase().includes(staffSearch.toLowerCase()) || p.pid.toLowerCase().includes(staffSearch.toLowerCase()))
                                         .map(p => (
@@ -395,6 +427,7 @@ export default function AdminDashboardPage() {
                                             )}
                                         </div>
                                     ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -415,7 +448,7 @@ export default function AdminDashboardPage() {
                                 {/* Role Selection */}
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-2">User Role</label>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {ROLE_OPTIONS.map(r => (
                                             <button type="button" key={r.value} onClick={() => handleFormChange('role', r.value)}
                                                 className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-sm font-bold text-left ${form.role === r.value ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
@@ -429,7 +462,7 @@ export default function AdminDashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1.5">First Name</label>
                                         <input value={form.firstName} onChange={e => handleFormChange('firstName', e.target.value)}
@@ -531,8 +564,9 @@ export default function AdminDashboardPage() {
                             <p className="text-sm text-slate-500">Reset passwords for any staff member or patient.</p>
                         </div>
 
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-50">
-                            {staff.map(s => (
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                            <div className="min-w-[600px] divide-y divide-slate-50">
+                                {staff.map(s => (
                                 <div key={s.id} className="flex items-center gap-4 px-6 py-4">
                                     <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{s.name[0]}</div>
                                     <div className="flex-1 min-w-0">
@@ -561,6 +595,7 @@ export default function AdminDashboardPage() {
                                     )}
                                 </div>
                             ))}
+                            </div>
                         </div>
                     </div>
                 )}
