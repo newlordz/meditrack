@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
 // POST /api/users - Register new user (Staff or Patient)
 router.post('/', async (req, res) => {
     try {
-        const { role, firstName, lastName, email, password, doctorId } = req.body;
+        const { role, firstName, lastName, email, password, doctorId, username } = req.body;
 
         if (!role || !firstName || !lastName || !email || !password) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -53,6 +53,7 @@ router.post('/', async (req, res) => {
         const user = await prisma.user.create({
             data: {
                 email,
+                username: username || null,
                 passwordHash,
                 mustChangePassword: true,
                 role: userRole,

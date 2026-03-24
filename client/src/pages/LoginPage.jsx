@@ -28,7 +28,13 @@ export default function LoginPage() {
         setIsLoading(true);
         setError('');
 
-        const isAdminCredentials = email.trim() === '@admin';
+        let loginIdentifier = email.trim();
+        // If identifier does not contain an '@' sign (i.e. not an email), treat it as a medical ID and prepend '@'
+        if (!loginIdentifier.includes('@') && loginIdentifier.length > 0) {
+            loginIdentifier = '@' + loginIdentifier;
+        }
+
+        const isAdminCredentials = loginIdentifier === '@admin';
 
         // Admin credentials only work when Admin role card is selected
         if (isAdminCredentials && selectedRole !== 'admin') {
@@ -50,7 +56,7 @@ export default function LoginPage() {
         }
 
         try {
-            const userData = await loginUser(email, password);
+            const userData = await loginUser(loginIdentifier, password);
             
             // Validate role if it's not admin
             if (userData.role !== selectedRole && userData.role) {

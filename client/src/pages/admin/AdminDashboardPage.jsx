@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
@@ -71,8 +71,27 @@ export default function AdminDashboardPage() {
 
     // Add User Form State
     const [form, setForm] = useState({
-        role: 'doctor', firstName: '', lastName: '', email: '', password: '', doctorId: ''
+        role: 'doctor', firstName: '', lastName: '', email: '', password: '', doctorId: '', medicalId: ''
     });
+    
+    // Auto-generate email and medical ID based on name and role
+    useEffect(() => {
+        if (!form.firstName && !form.lastName) return;
+        
+        const first = form.firstName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const last = form.lastName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const prefix = form.role === 'doctor' ? 'dr.' : '';
+        
+        const generatedEmail = `${prefix}${first}${last ? '.' + last : ''}@meditrack.gov.gh`;
+        const generatedMedicalId = `@${first}${last}`;
+
+        setForm(prev => ({
+            ...prev,
+            email: generatedEmail,
+            medicalId: generatedMedicalId
+        }));
+    }, [form.firstName, form.lastName, form.role]);
+    
     const [formError, setFormError] = useState('');
     const [formSuccess, setFormSuccess] = useState('');
 
@@ -103,6 +122,7 @@ export default function AdminDashboardPage() {
                 firstName: form.firstName,
                 lastName: form.lastName,
                 email: form.email,
+                username: form.medicalId,
                 password: form.password,
                 doctorId: form.doctorId || undefined
             });
@@ -488,9 +508,12 @@ export default function AdminDashboardPage() {
 
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Medical ID / Username</label>
-                                    <input value={form.medicalId} onChange={e => handleFormChange('medicalId', e.target.value)}
-                                        className="w-full px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none text-sm transition-all"
-                                        placeholder="e.g. @dr.chen or MT-00123" />
+                                    <div className="relative flex items-center">
+                                        <span className="absolute left-4 text-slate-700 font-bold">@</span>
+                                        <input value={form.medicalId ? form.medicalId.replace(/^@/, '') : ''} onChange={e => handleFormChange('medicalId', '@' + e.target.value.replace(/^@/, ''))}
+                                            className="w-full pl-8 pr-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none text-sm transition-all"
+                                            placeholder="e.g. dr.chen" />
+                                    </div>
                                 </div>
 
                                 <div>
