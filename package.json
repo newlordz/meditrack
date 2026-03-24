@@ -2,9 +2,9 @@
     "name": "meditrack-railway-deploy",
     "version": "1.0.0",
     "scripts": {
-        "install": "rm -rf client/package-lock.json && npm --prefix client install",
-        "build": "npm --prefix client run build",
-        "start": "npm --prefix client run preview -- --host 0.0.0.0 --port $PORT"
+        "install": "npm --prefix server install && npm --prefix client install",
+        "build": "npm --prefix client run build && npm --prefix server exec prisma generate",
+        "start": "npm --prefix server start"
     },
     "engines": {
         "node": ">=20.19.0"

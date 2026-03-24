@@ -1,6 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
@@ -31,6 +36,12 @@ app.use('/api/escalations', escalationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/refills', refillRoutes);
 app.use('/api/logs', logRoutes);
+
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, '../client/dist')));
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
 
 app.listen(PORT, () => {
     console.log(`✅ MEDITRACK server running at http://localhost:${PORT}`);
