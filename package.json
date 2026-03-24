@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "scripts": {
         "install": "npm --prefix server install && npm --prefix client install",
-        "build": "npm --prefix client run build && npm --prefix server exec prisma generate",
+        "build": "npm --prefix client run build && cd server && npx prisma generate",
         "start": "npm --prefix server start"
     },
     "engines": {
