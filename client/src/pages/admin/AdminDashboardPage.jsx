@@ -211,6 +211,7 @@ export default function AdminDashboardPage() {
 
             {/* Main Content */}
             <div className="flex-1 p-4 lg:p-8 overflow-y-auto h-screen w-full">
+                <div className="max-w-7xl mx-auto w-full">
 
                 {/* Mobile Header */}
                 <div className="lg:hidden flex items-center justify-between mb-6 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -599,6 +600,7 @@ export default function AdminDashboardPage() {
                         </div>
                     </div>
                 )}
+                </div>
             </div>
         </div>
     );
