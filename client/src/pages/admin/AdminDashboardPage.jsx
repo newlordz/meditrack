@@ -145,7 +145,7 @@ export default function AdminDashboardPage() {
     const handleLogout = () => { logout(); navigate('/login'); };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex">
+        <div className="min-h-screen bg-slate-50 relative">
 
             {/* Toast */}
             {toast && (
@@ -161,7 +161,7 @@ export default function AdminDashboardPage() {
             )}
 
             {/* Sidebar */}
-            <div className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 bg-white border-r border-slate-100 flex flex-col shadow-2xl lg:shadow-sm lg:relative lg:translate-x-0 transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 bg-white border-r border-slate-100 flex flex-col shadow-2xl lg:shadow-sm transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="bg-amber-500 p-2.5 rounded-xl shadow-sm">
@@ -210,7 +210,8 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 min-w-0 p-4 lg:p-8 overflow-y-auto h-screen w-full">
+            <div className="sidebar-offset min-h-screen">
+            <div className="p-4 lg:p-8 overflow-y-auto min-h-screen w-full">
                 <div className="max-w-7xl mx-auto w-full">
 
                 {/* Mobile Header */}
@@ -600,6 +601,7 @@ export default function AdminDashboardPage() {
                         </div>
                     </div>
                 )}
+                </div>
                 </div>
             </div>
         </div>
