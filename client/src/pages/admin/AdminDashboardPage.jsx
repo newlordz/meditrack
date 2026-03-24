@@ -365,15 +365,17 @@ export default function AdminDashboardPage() {
 
                         {/* Staff Table */}
                         {staffRoleFilter !== 'patient' && (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                    <h3 className="font-black text-slate-900">Staff Members</h3>
+                                    <button onClick={() => setActiveSection('add-user')} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors whitespace-nowrap">
+                                        <span className="material-symbols-outlined text-[16px]">person_add</span>
+                                        <span className="hidden sm:inline">Add User</span>
+                                        <span className="sm:hidden">Add</span>
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
                                 <div className="min-w-[700px]">
-                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                        <h3 className="font-black text-slate-900">Staff Members</h3>
-                                        <button onClick={() => setActiveSection('add-user')} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors">
-                                            <span className="material-symbols-outlined text-[16px]">person_add</span>
-                                            Add User
-                                        </button>
-                                    </div>
                                     <div className="divide-y divide-slate-50">
                                     {staff
                                         .filter(s => staffRoleFilter === 'all' || s.role === staffRoleFilter)
@@ -410,20 +412,23 @@ export default function AdminDashboardPage() {
                                     ))}
                                     </div>
                                 </div>
+                                </div>
                             </div>
                         )}
 
                         {/* Patient Table */}
                         {(staffRoleFilter === 'all' || staffRoleFilter === 'patient') && (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mt-6">
+                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                    <h3 className="font-black text-slate-900">Registered Patients</h3>
+                                    <p className="text-xs text-rose-500 font-semibold flex flex-wrap items-center justify-end gap-1 text-right">
+                                        <span className="material-symbols-outlined text-[14px]">warning</span>
+                                        <span className="hidden sm:inline">Delete is permanent</span>
+                                        <span className="sm:hidden">Permanent</span>
+                                    </p>
+                                </div>
+                                <div className="overflow-x-auto">
                                 <div className="min-w-[700px]">
-                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                        <h3 className="font-black text-slate-900">Registered Patients</h3>
-                                        <p className="text-xs text-rose-500 font-semibold flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-[14px]">warning</span>
-                                            Delete is permanent
-                                        </p>
-                                    </div>
                                     <div className="divide-y divide-slate-50">
                                     {patients
                                         .filter(p => !staffSearch || p.name.toLowerCase().includes(staffSearch.toLowerCase()) || p.email.toLowerCase().includes(staffSearch.toLowerCase()) || p.pid.toLowerCase().includes(staffSearch.toLowerCase()))
@@ -450,6 +455,7 @@ export default function AdminDashboardPage() {
                                         </div>
                                     ))}
                                     </div>
+                                </div>
                                 </div>
                             </div>
                         )}
