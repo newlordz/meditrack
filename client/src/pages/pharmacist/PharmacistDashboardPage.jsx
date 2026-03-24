@@ -235,7 +235,7 @@ export default function PharmacistDashboardPage() {
             )}
 
             {/* Page Content */}
-            <div className="flex-1 px-4 sm:px-6 py-6 lg:mb-0 mb-16 space-y-6">
+            <div className="flex-1 px-4 sm:px-6 py-6 lg:mb-0 mb-16 space-y-6 max-w-7xl mx-auto w-full">
 
                 {/* Hero Banner */}
                 <div className="bg-gradient-to-r from-primary to-blue-600 rounded-2xl p-6 text-white shadow-lg">

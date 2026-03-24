@@ -48,7 +48,7 @@ export default function CaregiverDashboardPage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
-            <div className="flex-1 px-4 sm:px-6 py-6 mb-20 lg:mb-0 space-y-6 animate-fade-in">
+            <div className="flex-1 px-4 sm:px-6 py-6 mb-20 lg:mb-0 space-y-6 animate-fade-in max-w-7xl mx-auto w-full">
 
                 {/* Hero Banner */}
                 <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-700 rounded-2xl p-6 sm:p-8 text-white shadow-lg shadow-emerald-900/20 relative overflow-hidden">
