@@ -104,6 +104,7 @@ export default function ClinicianDashboardPage() {
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none" />
                 <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-white/5 rounded-full translate-y-1/2 pointer-events-none" />
 
+                <div className="max-w-7xl mx-auto w-full">
                 <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <p className="text-blue-200 text-sm font-semibold uppercase tracking-widest mb-1">{today}</p>
@@ -138,9 +139,12 @@ export default function ClinicianDashboardPage() {
                         </Link>
                     ))}
                 </div>
+                </div>
+                </div>
             </header>
 
-            <div className="flex-1 px-4 sm:px-6 py-6 space-y-6 mb-20 lg:mb-0 animate-fade-in -mt-2">
+            <div className="flex-1 w-full px-4 sm:px-6 py-6 mb-20 lg:mb-0 animate-fade-in -mt-2">
+                <div className="max-w-7xl mx-auto w-full space-y-6">
 
                 {/* ── Row 2: High-Risk + Activity ──────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -351,6 +355,8 @@ export default function ClinicianDashboardPage() {
                             </Link>
                         ))}
                     </div>
+                </div>
+                </div>
                 </div>
             </div>
         </div>
