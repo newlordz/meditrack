@@ -140,7 +140,6 @@ export default function ClinicianDashboardPage() {
                     ))}
                 </div>
                 </div>
-                </div>
             </header>
 
             <div className="flex-1 w-full px-4 sm:px-6 py-6 mb-20 lg:mb-0 animate-fade-in -mt-2">
@@ -355,7 +354,6 @@ export default function ClinicianDashboardPage() {
                             </Link>
                         ))}
                     </div>
-                </div>
                 </div>
                 </div>
             </div>
