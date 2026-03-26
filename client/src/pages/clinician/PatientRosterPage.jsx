@@ -81,21 +81,26 @@ export default function PatientRosterPage() {
     // Live wait-time clock — joinedAt computed once at init
     const [now, setNow] = useState(Date.now); // lazy: calls Date.now() once
     const { data: rawPatients } = useApi(() => getPatients(user?.userId || user?.id), [user?.userId, user?.id]);
+    const [localOverrides, setLocalOverrides] = useState({});
+    
     // Adapt API shape to what the roster UI expects
-    const SHARED_PATIENTS = (rawPatients || []).map(p => ({
-        ...p,
-        condition: p.conditions?.join(', ') || 'Unknown',
-        adherence: 75,  // placeholder until logs are aggregated
-        alertType: p.activeEscalations > 0 ? 'critical' : 'stable',
-        alertText: p.activeEscalations > 0 ? `Critical: ${p.activeEscalations} escalation(s)` : 'Stable',
-        refillStatus: 'normal',
-        refillText: 'Refill in 10 days',
-        queueStatus: 'waiting',
-        waitMinutes: 10,
-        needsReview: p.activeEscalations > 0,
-        pendingSync: false,
-        status: p.activeEscalations > 0 ? 'critical' : 'on-track',
-    }));
+    const SHARED_PATIENTS = (rawPatients || []).map(p => {
+        const overrides = localOverrides[p.id] || {};
+        return {
+            ...p,
+            condition: overrides.condition || p.conditions?.join(', ') || 'Unknown',
+            adherence: 75,  // placeholder until logs are aggregated
+            alertType: p.activeEscalations > 0 ? 'critical' : 'stable',
+            alertText: p.activeEscalations > 0 ? `Critical: ${p.activeEscalations} escalation(s)` : 'Stable',
+            refillStatus: 'normal',
+            refillText: 'Refill in 10 days',
+            queueStatus: overrides.queueStatus || 'waiting',
+            waitMinutes: 10,
+            needsReview: p.activeEscalations > 0,
+            pendingSync: false,
+            status: p.activeEscalations > 0 ? 'critical' : 'on-track',
+        };
+    });
 
     const [joinedAt] = useState(() => {
         const map = {};
@@ -317,13 +322,14 @@ export default function PatientRosterPage() {
 
     const handleCompleteConsult = () => {
         if (!selectedPatient) return;
-        const patientGlobal = SHARED_PATIENTS.find(p => p.id === selectedPatient.id);
-        if (patientGlobal) {
-            patientGlobal.queueStatus = 'completed';
-            if (diagnosis.trim()) {
-                patientGlobal.condition = diagnosis.trim();
+        setLocalOverrides(prev => ({
+            ...prev,
+            [selectedPatient.id]: {
+                ...prev[selectedPatient.id],
+                queueStatus: 'completed',
+                condition: diagnosis.trim() ? diagnosis.trim() : (prev[selectedPatient.id]?.condition || selectedPatient.condition)
             }
-        }
+        }));
         setToastMessage(`${selectedPatient.name}'s consultation is complete.`);
         setTimeout(() => setToastMessage(null), 3000);
         setUpdateTrigger(prev => prev + 1);
@@ -885,7 +891,13 @@ export default function PatientRosterPage() {
                                                         setDiagnosis('');
                                                         setActiveModal('view');
                                                         if (patient.queueStatus === 'waiting') {
-                                                            patient.queueStatus = 'in-consultation';
+                                                            setLocalOverrides(prev => ({
+                                                                ...prev,
+                                                                [patient.id]: {
+                                                                    ...prev[patient.id],
+                                                                    queueStatus: 'in-consultation'
+                                                                }
+                                                            }));
                                                             setUpdateTrigger(p => p + 1);
                                                         }
                                                     }}
