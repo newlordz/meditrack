@@ -609,6 +609,20 @@ export default function PatientRosterPage() {
                                 </div>
 
                                 {/* Consultation Notes Area */}
+                                {selectedPatient.queueStatus === 'completed' ? (
+                                    <div className="mb-8 border border-emerald-100 rounded-xl p-5 bg-emerald-50/50 shadow-sm flex flex-col">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="material-symbols-outlined text-emerald-600 text-[20px]">task_alt</span>
+                                            <h4 className="font-bold text-emerald-900">Consultation Completed</h4>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <p className="text-xs font-bold text-emerald-700/70 uppercase">Diagnosis / Condition</p>
+                                                <p className="font-semibold text-emerald-900">{selectedPatient.condition}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
                                 <div className="mb-8 border border-slate-100 rounded-xl p-5 bg-white shadow-sm flex flex-col">
                                     <div className="flex items-center gap-2 mb-3">
                                         <span className="material-symbols-outlined text-primary text-[20px]">edit_document</span>
@@ -658,28 +672,37 @@ export default function PatientRosterPage() {
                                         ></textarea>
                                     </div>
                                 </div>
+                                )}
 
                                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-slate-100">
-                                    <button onClick={closeModal} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-colors w-full sm:w-auto">
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setPrescriptionForm({ drug: '', qty: '', instructions: '', urgency: 'normal' });
-                                            setActiveModal('prescribe');
-                                        }}
-                                        className="px-5 py-2.5 bg-white border border-primary text-primary hover:bg-primary/5 font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">prescriptions</span>
-                                        Prescribe Rx
-                                    </button>
-                                    <button
-                                        onClick={handleCompleteConsult}
-                                        className="px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                                        Complete Consult
-                                    </button>
+                                    {selectedPatient.queueStatus === 'completed' ? (
+                                        <button onClick={closeModal} className="px-5 py-2.5 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 transition-colors w-full sm:w-auto">
+                                            Close Details
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button onClick={closeModal} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-colors w-full sm:w-auto">
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setPrescriptionForm({ drug: '', qty: '', instructions: '', urgency: 'normal' });
+                                                    setActiveModal('prescribe');
+                                                }}
+                                                className="px-5 py-2.5 bg-white border border-primary text-primary hover:bg-primary/5 font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto"
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">prescriptions</span>
+                                                Prescribe Rx
+                                            </button>
+                                            <button
+                                                onClick={handleCompleteConsult}
+                                                className="px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto"
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                                Complete Consult
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         )}
