@@ -41,7 +41,7 @@ app.use('/api/logs', logRoutes);
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, '../client/dist'), { index: false }));
 
-app.use('*', (req, res) => {
+app.use((req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
