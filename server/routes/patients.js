@@ -29,6 +29,7 @@ router.get('/', async (req, res) => {
             name: `${p.user.firstName} ${p.user.lastName}`,
             initials: `${p.user.firstName[0]}${p.user.lastName[0]}`,
             email: p.user.email,
+            doctorId: p.doctorId,
             dob: p.dob,
             bloodType: p.bloodType,
             conditions: p.conditions,

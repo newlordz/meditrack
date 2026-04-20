@@ -498,6 +498,10 @@ export default function AdminDashboardPage() {
                                                         <input type="text" value={editForm.weight || ''} onChange={e => setEditForm(f => ({...f, weight: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" placeholder="e.g. 70kg" />
                                                     </div>
                                                     <div>
+                                                        <label className="block text-xs font-bold text-slate-700 mb-1">Height</label>
+                                                        <input type="text" value={editForm.height || ''} onChange={e => setEditForm(f => ({...f, height: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" placeholder="e.g. 180cm" />
+                                                    </div>
+                                                    <div>
                                                         <label className="block text-xs font-bold text-slate-700 mb-1">Conditions (comma-separated)</label>
                                                         <input type="text" value={editForm.conditions || ''} onChange={e => setEditForm(f => ({...f, conditions: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" placeholder="e.g. Hypertension" />
                                                     </div>
@@ -660,8 +664,8 @@ export default function AdminDashboardPage() {
                                                 <div>
                                                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Weight & Height</label>
                                                     <div className="flex gap-2">
-                                                        <input type="text" placeholder="e.g. 70kg" value={form.weight} onChange={e => handleFormChange('weight', e.target.value)} className="flex-1 px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
-                                                        <input type="text" placeholder="e.g. 180cm" value={form.height} onChange={e => handleFormChange('height', e.target.value)} className="flex-1 px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                        <input type="text" placeholder="e.g. 70kg" value={form.weight} onChange={e => handleFormChange('weight', e.target.value)} className="flex-1 min-w-0 px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                        <input type="text" placeholder="e.g. 180cm" value={form.height} onChange={e => handleFormChange('height', e.target.value)} className="flex-1 min-w-0 px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
                                                     </div>
                                                 </div>
                                                 <div>
