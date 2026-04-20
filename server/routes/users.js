@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
 // POST /api/users - Register new user (Staff or Patient)
 router.post('/', async (req, res) => {
     try {
-        const { role, firstName, lastName, email, password, doctorId, username } = req.body;
+        const { role, firstName, lastName, email, password, doctorId, username, dob, bloodType, weight, height, conditions, allergies } = req.body;
 
         if (!role || !firstName || !lastName || !email || !password) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -70,12 +70,12 @@ router.post('/', async (req, res) => {
                     pid: `P-${pidString}`,
                     userId: user.id,
                     doctorId: doctorId || null,
-                    dob: new Date('1970-01-01'), // Default, can be updated later
-                    bloodType: 'Unknown',
-                    weight: 'Unknown',
-                    height: 'Unknown',
-                    conditions: [],
-                    allergies: []
+                    dob: dob ? new Date(dob) : new Date('1970-01-01'),
+                    bloodType: bloodType || 'Unknown',
+                    weight: weight || 'Unknown',
+                    height: height || 'Unknown',
+                    conditions: conditions || [],
+                    allergies: allergies || []
                 }
             });
             return res.json({ id: patient.id, message: 'Patient registered successfully' });

@@ -29,6 +29,19 @@ async function patch(path, body = {}) {
     return res.json();
 }
 
+async function del(path) {
+    const res = await fetch(`${BASE}${path}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+        let msg = res.statusText;
+        try { const data = await res.json(); if (data.error) msg = data.error; } catch { /* ignore */ }
+        throw new Error(msg);
+    }
+    return res.json();
+}
+
 async function post(path, body = {}) {
     const res = await fetch(`${BASE}${path}`, {
         method: 'POST',
@@ -46,6 +59,8 @@ async function post(path, body = {}) {
 // ─── Patients ────────────────────────────────────────────────────────────────
 export const getPatients = (doctorId) => request(doctorId ? `/patients?doctorId=${doctorId}` : '/patients');
 export const getPatient = (id) => request(`/patients/${id}`);
+export const deletePatient = (id) => del(`/patients/${id}`);
+export const updatePatient = (id, data) => patch(`/patients/${id}`, data);
 
 // ─── Escalations ─────────────────────────────────────────────────────────────
 export const getEscalations = (doctorId) => request(doctorId ? `/escalations?doctorId=${doctorId}` : '/escalations');
@@ -67,6 +82,6 @@ export const getMedicationLogs = () => request('/logs');
 export const loginUser = (email, password) => post('/auth/login', { email, password });
 export const getUsers = () => request('/users');
 export const createUser = (data) => post('/users', data);
-export const deleteUser = (id) => request(`/users/${id}`, { method: 'DELETE' }).catch(() => fetch(`${BASE}/users/${id}`, { method: 'DELETE' }).then(res => res.json())); // Add minimal delete support
+export const deleteUser = (id) => del(`/users/${id}`);
 export const resetUserPassword = (id, newPassword) => patch(`/users/${id}/reset`, { newPassword });
 export const changeMyPassword = (id, oldPassword, newPassword) => patch(`/users/${id}/change-password`, { oldPassword, newPassword });

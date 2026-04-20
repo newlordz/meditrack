@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
-import { getPatients, getUsers, createUser, deleteUser as deleteStaffApi, resetUserPassword } from '../../api/api';
+import { getPatients, getUsers, createUser, deleteUser as deleteStaffApi, deletePatient, resetUserPassword, updatePatient } from '../../api/api';
 
 const ROLE_OPTIONS = [
     { value: 'doctor', label: 'Doctor / Clinician', icon: 'stethoscope', color: 'text-blue-600 bg-blue-50' },
@@ -52,9 +52,41 @@ export default function AdminDashboardPage() {
     const [formLoading, setFormLoading] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    const handleDeletePatient = async () => {
-        setConfirmDeletePatient(null);
-        showToast('Patient removed from the view.', 'success');
+    const [editPatientId, setEditPatientId] = useState(null);
+    const [editForm, setEditForm] = useState({ doctorId: '', dob: '', bloodType: '', weight: '', height: '', conditions: '', allergies: '' });
+
+    const handleDeletePatient = async (patientId) => {
+        try {
+            await deletePatient(patientId);
+            refetchPatients();
+            setConfirmDeletePatient(null);
+            showToast('Patient removed from the system.', 'success');
+        } catch (error) {
+            console.error(error);
+            showToast('Failed to delete patient.', 'error');
+        }
+    };
+
+    const handleUpdatePatient = async (e) => {
+        e.preventDefault();
+        try {
+            const data = {
+                doctorId: editForm.doctorId || undefined,
+                dob: editForm.dob || undefined,
+                bloodType: editForm.bloodType || undefined,
+                weight: editForm.weight || undefined,
+                height: editForm.height || undefined,
+                conditions: editForm.conditions && typeof editForm.conditions === 'string' ? editForm.conditions.split(',').map(s=>s.trim()).filter(Boolean) : [],
+                allergies: editForm.allergies && typeof editForm.allergies === 'string' ? editForm.allergies.split(',').map(s=>s.trim()).filter(Boolean) : []
+            };
+            await updatePatient(editPatientId, data);
+            refetchPatients();
+            setEditPatientId(null);
+            showToast('Patient updated successfully.');
+        } catch (err) {
+            console.error(err);
+            showToast('Failed to update patient.', 'error');
+        }
     };
 
     const handleDeleteStaff = async (staffId) => {
@@ -71,7 +103,8 @@ export default function AdminDashboardPage() {
 
     // Add User Form State
     const [form, setForm] = useState({
-        role: 'doctor', firstName: '', lastName: '', email: '', password: '', doctorId: '', medicalId: ''
+        role: 'doctor', firstName: '', lastName: '', email: '', password: '', doctorId: '', medicalId: '',
+        dob: '', bloodType: '', weight: '', height: '', conditions: '', allergies: ''
     });
     
     // Auto-generate email and medical ID based on name and role
@@ -124,7 +157,13 @@ export default function AdminDashboardPage() {
                 email: form.email,
                 username: form.medicalId,
                 password: form.password,
-                doctorId: form.doctorId || undefined
+                doctorId: form.doctorId || undefined,
+                dob: form.role === 'patient' && form.dob ? form.dob : undefined,
+                bloodType: form.role === 'patient' && form.bloodType ? form.bloodType : undefined,
+                weight: form.role === 'patient' && form.weight ? form.weight : undefined,
+                height: form.role === 'patient' && form.height ? form.height : undefined,
+                conditions: form.role === 'patient' && form.conditions ? form.conditions.split(',').map(s=>s.trim()).filter(Boolean) : [],
+                allergies: form.role === 'patient' && form.allergies ? form.allergies.split(',').map(s=>s.trim()).filter(Boolean) : []
             });
             
             if (form.role === 'patient') {
@@ -135,7 +174,7 @@ export default function AdminDashboardPage() {
                 setFormSuccess(`${form.firstName} ${form.lastName} has been successfully registered as a ${form.role}.`);
             }
             
-            setForm({ role: 'doctor', firstName: '', lastName: '', email: '', password: '', doctorId: '' });
+            setForm({ role: 'doctor', firstName: '', lastName: '', email: '', password: '', doctorId: '', medicalId: '', dob: '', bloodType: '', weight: '', height: '', conditions: '', allergies: '' });
             showToast(`${form.firstName} ${form.lastName} added!`);
         } catch (error) {
             setFormError(error.message || 'Failed to create user. Email may already be in use.');
@@ -433,6 +472,46 @@ export default function AdminDashboardPage() {
                                     {patients
                                         .filter(p => !staffSearch || p.name.toLowerCase().includes(staffSearch.toLowerCase()) || p.email.toLowerCase().includes(staffSearch.toLowerCase()) || p.pid.toLowerCase().includes(staffSearch.toLowerCase()))
                                         .map(p => (
+                                        editPatientId === p.id ? (
+                                            <div key={p.id} className="p-6 bg-slate-50 border-b border-slate-100">
+                                                <h4 className="font-bold text-slate-900 mb-4">Edit {p.name}</h4>
+                                                <form onSubmit={handleUpdatePatient} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Doctor</label>
+                                                        <select value={editForm.doctorId} onChange={e => setEditForm(f => ({...f, doctorId: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm">
+                                                            <option value="">None</option>
+                                                            {staff.filter(s => s.role === 'doctor' || s.role === 'DOCTOR').map(doc => (
+                                                                <option key={doc.id} value={doc.id}>{doc.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-700 mb-1">Date of Birth</label>
+                                                        <input type="date" value={editForm.dob?.split('T')[0] || ''} onChange={e => setEditForm(f => ({...f, dob: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-700 mb-1">Blood Type</label>
+                                                        <input type="text" value={editForm.bloodType || ''} onChange={e => setEditForm(f => ({...f, bloodType: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" placeholder="e.g. O+" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-700 mb-1">Weight</label>
+                                                        <input type="text" value={editForm.weight || ''} onChange={e => setEditForm(f => ({...f, weight: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" placeholder="e.g. 70kg" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-700 mb-1">Conditions (comma-separated)</label>
+                                                        <input type="text" value={editForm.conditions || ''} onChange={e => setEditForm(f => ({...f, conditions: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" placeholder="e.g. Hypertension" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-700 mb-1">Allergies (comma-separated)</label>
+                                                        <input type="text" value={editForm.allergies || ''} onChange={e => setEditForm(f => ({...f, allergies: e.target.value}))} className="w-full px-3 h-9 rounded-lg border border-slate-200 text-sm" placeholder="e.g. Penicillin" />
+                                                    </div>
+                                                    <div className="sm:col-span-2 flex justify-end gap-2 mt-2">
+                                                        <button type="button" onClick={() => setEditPatientId(null)} className="px-4 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-sm hover:bg-slate-100 font-semibold transition-colors">Cancel</button>
+                                                        <button type="submit" className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold transition-colors">Save Changes</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        ) : (
                                         <div key={p.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
                                             <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{p.initials}</div>
                                             <div className="flex-1 min-w-0">
@@ -441,18 +520,37 @@ export default function AdminDashboardPage() {
                                             </div>
                                             <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">patient</span>
                                             <p className="text-xs text-slate-400 hidden md:block">{p.conditions?.join(', ')}</p>
-                                            {confirmDeletePatient === p.id ? (
-                                                <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
-                                                    <span className="text-xs text-rose-700 font-semibold">Delete {p.name}?</span>
-                                                    <button onClick={() => handleDeletePatient(p.id)} className="px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg transition-colors">Yes</button>
-                                                    <button onClick={() => setConfirmDeletePatient(null)} className="px-2 py-1 border border-slate-200 text-slate-500 text-xs rounded-lg hover:bg-white transition-colors">No</button>
-                                                </div>
-                                            ) : (
-                                                <button onClick={() => setConfirmDeletePatient(p.id)} className="p-2 rounded-lg hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-colors" title="Delete Patient">
-                                                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => {
+                                                    // Fetch fresh patient data just in case, but fallback to table basic info
+                                                    const fullData = patients.find(x => x.id === p.id);
+                                                    setEditForm({
+                                                        doctorId: fullData?.doctor?.id || fullData?.doctorId || '', 
+                                                        dob: fullData?.dob || '', 
+                                                        bloodType: fullData?.bloodType || '', 
+                                                        weight: fullData?.weight || '', 
+                                                        height: fullData?.height || '', 
+                                                        conditions: fullData?.conditions?.join(', ') || '', 
+                                                        allergies: fullData?.allergies?.join(', ') || ''
+                                                    });
+                                                    setEditPatientId(p.id);
+                                                }} className="p-2 rounded-lg hover:bg-amber-50 text-slate-300 hover:text-amber-500 transition-colors" title="Edit Patient">
+                                                    <span className="material-symbols-outlined text-[18px]">edit</span>
                                                 </button>
-                                            )}
+                                                {confirmDeletePatient === p.id ? (
+                                                    <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                                                        <span className="text-xs text-rose-700 font-semibold">Delete {p.name}?</span>
+                                                        <button onClick={() => handleDeletePatient(p.id)} className="px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg transition-colors">Yes</button>
+                                                        <button onClick={() => setConfirmDeletePatient(null)} className="px-2 py-1 border border-slate-200 text-slate-500 text-xs rounded-lg hover:bg-white transition-colors">No</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setConfirmDeletePatient(p.id)} className="p-2 rounded-lg hover:bg-rose-50 text-slate-300 hover:text-rose-500 transition-colors" title="Delete Patient">
+                                                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
+                                        )
                                     ))}
                                     </div>
                                 </div>
@@ -531,21 +629,51 @@ export default function AdminDashboardPage() {
                                 </div>
 
                                 {form.role === 'patient' && (
-                                    <div className="animate-fade-in">
-                                        <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                                            <span className="material-symbols-outlined text-[16px] text-blue-500">stethoscope</span>
-                                            Primary Physician
-                                        </label>
-                                        <select 
-                                            value={form.doctorId} 
-                                            onChange={e => handleFormChange('doctorId', e.target.value)}
-                                            className="w-full px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none text-sm transition-all appearance-none cursor-pointer"
-                                        >
-                                            <option value="" disabled>Select a doctor...</option>
-                                            {staff.filter(s => s.role === 'doctor' || s.role === 'DOCTOR').map(doc => (
-                                                <option key={doc.id} value={doc.id}>{doc.name}</option>
-                                            ))}
-                                        </select>
+                                    <div className="animate-fade-in space-y-4">
+                                        <div className="pt-2 border-t border-slate-100">
+                                            <h3 className="text-sm font-bold text-slate-900 mb-3">Additional Patient Info</h3>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                                                        <span className="material-symbols-outlined text-[16px] text-blue-500">stethoscope</span>
+                                                        Primary Physician
+                                                    </label>
+                                                    <select 
+                                                        value={form.doctorId} 
+                                                        onChange={e => handleFormChange('doctorId', e.target.value)}
+                                                        className="w-full px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none text-sm transition-all appearance-none cursor-pointer"
+                                                    >
+                                                        <option value="" disabled>Select a doctor...</option>
+                                                        {staff.filter(s => s.role === 'doctor' || s.role === 'DOCTOR').map(doc => (
+                                                            <option key={doc.id} value={doc.id}>{doc.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Date of Birth</label>
+                                                    <input type="date" value={form.dob} onChange={e => handleFormChange('dob', e.target.value)} className="w-full px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Blood Type</label>
+                                                    <input type="text" placeholder="e.g. O+" value={form.bloodType} onChange={e => handleFormChange('bloodType', e.target.value)} className="w-full px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Weight & Height</label>
+                                                    <div className="flex gap-2">
+                                                        <input type="text" placeholder="e.g. 70kg" value={form.weight} onChange={e => handleFormChange('weight', e.target.value)} className="flex-1 px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                        <input type="text" placeholder="e.g. 180cm" value={form.height} onChange={e => handleFormChange('height', e.target.value)} className="flex-1 px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Conditions</label>
+                                                    <input type="text" placeholder="Asthma, Hypertension" value={form.conditions} onChange={e => handleFormChange('conditions', e.target.value)} className="w-full px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Allergies</label>
+                                                    <input type="text" placeholder="Peanuts, Penicillin" value={form.allergies} onChange={e => handleFormChange('allergies', e.target.value)} className="w-full px-4 h-11 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-amber-400 outline-none text-sm" />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
