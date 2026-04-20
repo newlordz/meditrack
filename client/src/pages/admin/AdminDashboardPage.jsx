@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
-import { getPatients, getUsers, createUser, deleteUser as deleteStaffApi, deletePatient, resetUserPassword, updatePatient } from '../../api/api';
+import { getPatients, getUsers, createUser, deleteUser as deleteStaffApi, deletePatient, resetUserPassword, updatePatient, getPasswordResetRequests, updatePasswordResetRequest } from '../../api/api';
 
 const ROLE_OPTIONS = [
     { value: 'doctor', label: 'Doctor / Clinician', icon: 'stethoscope', color: 'text-blue-600 bg-blue-50' },
@@ -34,10 +34,12 @@ export default function AdminDashboardPage() {
     // Live API Data
     const { data: rawStaff, refetch: refetchStaff } = useApi(getUsers);
     const { data: rawPatients, refetch: refetchPatients } = useApi(getPatients);
+    const { data: rawRequests, refetch: refetchRequests } = useApi(getPasswordResetRequests);
     
     // Fallbacks if data is still loading
     const staff = rawStaff || [];
     const patients = rawPatients || [];
+    const pendingRequests = rawRequests || [];
 
     const [toast, setToast] = useState(null);
     const [resetTarget, setResetTarget] = useState(null);
@@ -194,6 +196,30 @@ export default function AdminDashboardPage() {
         } catch (err) {
             console.error(err);
             showToast('Failed to reset password.', 'error');
+        }
+    };
+
+    const handleApproveRequest = async (requestId, tempPw) => {
+        if (!tempPw || tempPw.length < 6) {
+            showToast('Temporary password must be at least 6 characters.', 'error');
+            return;
+        }
+        try {
+            await updatePasswordResetRequest(requestId, { status: 'APPROVED', password: tempPw });
+            showToast('Request approved. Temporary password issued.');
+            refetchRequests();
+        } catch (err) {
+            showToast(err.message || 'Failed to approve request', 'error');
+        }
+    };
+
+    const handleRejectRequest = async (requestId) => {
+        try {
+            await updatePasswordResetRequest(requestId, { status: 'REJECTED' });
+            showToast('Request rejected.');
+            refetchRequests();
+        } catch (err) {
+            showToast(err.message || 'Failed to reject request', 'error');
         }
     };
 
@@ -727,7 +753,45 @@ export default function AdminDashboardPage() {
                             <p className="text-sm text-slate-500">Reset passwords for any staff member or patient.</p>
                         </div>
 
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto mb-6">
+                            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <h3 className="font-black text-slate-900">Pending Requests</h3>
+                                <span className="bg-amber-100 text-amber-700 text-[11px] font-bold px-2 py-0.5 rounded-full">{pendingRequests.length} pending</span>
+                            </div>
+                            {pendingRequests.length === 0 ? (
+                                <div className="p-6 text-center text-slate-400 text-sm italic">No pending password reset requests.</div>
+                            ) : (
+                                <div className="min-w-[700px] divide-y divide-slate-50">
+                                    {pendingRequests.map(req => (
+                                        <div key={req.id} className="flex items-center gap-4 px-6 py-4 bg-amber-50/30">
+                                            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold text-sm flex-shrink-0">
+                                                <span className="material-symbols-outlined text-[20px]">help_center</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-slate-900 text-sm">{req.name}</p>
+                                                <p className="text-xs text-slate-500">{req.userRef} · <span className="uppercase text-[10px] font-black">{req.role}</span></p>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    id={`pw-${req.id}`} 
+                                                    type="text" 
+                                                    placeholder="Temp Password" 
+                                                    className="px-3 h-9 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 w-36"
+                                                />
+                                                <button onClick={() => handleApproveRequest(req.id, document.getElementById(`pw-${req.id}`).value)} className="px-3 h-9 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors">Approve</button>
+                                                <button onClick={() => handleRejectRequest(req.id)} className="px-3 h-9 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold transition-colors">Reject</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <h3 className="font-black text-slate-900">Manual Password Reset (Staff)</h3>
+                            </div>
                             <div className="min-w-[600px] divide-y divide-slate-50">
                                 {staff.map(s => (
                                 <div key={s.id} className="flex items-center gap-4 px-6 py-4">

@@ -62,6 +62,11 @@ export const getPatient = (id) => request(`/patients/${id}`);
 export const deletePatient = (id) => del(`/patients/${id}`);
 export const updatePatient = (id, data) => patch(`/patients/${id}`, data);
 
+// --- Password Reset Requests ---
+export const submitPasswordResetRequest = (data) => post('/auth/reset-request', data);
+export const getPasswordResetRequests = () => request('/auth/reset-requests');
+export const updatePasswordResetRequest = (id, data) => patch(`/auth/reset-requests/${id}`, data);
+
 // ─── Escalations ─────────────────────────────────────────────────────────────
 export const getEscalations = (doctorId) => request(doctorId ? `/escalations?doctorId=${doctorId}` : '/escalations');
 export const resolveEscalation = (id) => patch(`/escalations/${id}/resolve`);

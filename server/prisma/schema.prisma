@@ -22,6 +22,7 @@ model User {
   caregiving   Patient[] @relation("CaregiverUser")
   patients     Patient[] @relation("DoctorUser")
   prescriptions Prescription[] @relation("PrescriberUser")
+  resetRequests PasswordResetRequest[]
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -176,3 +177,18 @@ enum EscalationStatus {
   RESOLVED
   DISMISSED
 }
+
+model PasswordResetRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  status    ResetStatus @default(PENDING)
+  createdAt DateTime @default(now())
+}
+
+enum ResetStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+

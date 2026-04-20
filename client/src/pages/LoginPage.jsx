@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { ROLE_ROUTES } from '../context/authConstants';
 import MFAInput from '../components/MFAInput';
-import { loginUser } from '../api/api';
+import { loginUser, submitPasswordResetRequest } from '../api/api';
 
 const MAIN_ROLE_CARDS = [
     { key: 'patient', label: 'Patient', desc: 'View records & appointments', icon: 'person' },
@@ -22,6 +22,27 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     const [error, setError] = useState('');
+    
+    // Forgot Password Flow
+    const [isForgotOpen, setIsForgotOpen] = useState(false);
+    const [forgotForm, setForgotForm] = useState({ name: '', username: '', role: 'patient' });
+    const [forgotStatus, setForgotStatus] = useState({ loading: false, msg: '', error: '' });
+
+    const handleForgotSubmit = async (e) => {
+        e.preventDefault();
+        setForgotStatus({ loading: true, msg: '', error: '' });
+        try {
+            await submitPasswordResetRequest(forgotForm);
+            setForgotStatus({ loading: false, msg: 'Request submitted successfully. An admin will review it.', error: '' });
+            setTimeout(() => {
+                setIsForgotOpen(false);
+                setForgotStatus({ loading: false, msg: '', error: '' });
+                setForgotForm({ name: '', username: '', role: 'patient' });
+            }, 3000);
+        } catch (err) {
+            setForgotStatus({ loading: false, msg: '', error: err.message || 'Failed to submit request.' });
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -212,7 +233,7 @@ export default function LoginPage() {
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                     <label className="block text-[14px] font-semibold text-slate-700" htmlFor="login-password">Password</label>
-                                    <button type="button" className="text-[13px] text-primary font-bold hover:underline transition-all">Forgot password?</button>
+                                    <button type="button" onClick={() => setIsForgotOpen(true)} className="text-[13px] text-primary font-bold hover:underline transition-all">Forgot password?</button>
                                 </div>
                                 <div className="relative flex items-center">
                                     <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[18px] pointer-events-none">
@@ -305,6 +326,68 @@ export default function LoginPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Forgot Password Modal */}
+            {isForgotOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                            <h3 className="text-[18px] font-bold text-slate-900">Request Password Reset</h3>
+                            <button onClick={() => setIsForgotOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-[14px] text-slate-500 mb-5 leading-relaxed">
+                                Enter your details below. An administrator will review your request and issue a temporary password if approved.
+                            </p>
+                            
+                            {forgotStatus.msg && (
+                                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2 text-emerald-700 text-[13px] font-medium">
+                                    <span className="material-symbols-outlined text-[16px] mt-0.5">check_circle</span>
+                                    {forgotStatus.msg}
+                                </div>
+                            )}
+                            {forgotStatus.error && (
+                                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2 text-rose-700 text-[13px] font-medium">
+                                    <span className="material-symbols-outlined text-[16px] mt-0.5">error</span>
+                                    {forgotStatus.error}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleForgotSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">Full Name</label>
+                                    <input required type="text" value={forgotForm.name} onChange={(e) => setForgotForm({ ...forgotForm, name: e.target.value })} 
+                                        className="w-full h-[40px] px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none" 
+                                        placeholder="e.g. John Doe" />
+                                </div>
+                                <div>
+                                    <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">Email or Medical ID</label>
+                                    <input required type="text" value={forgotForm.username} onChange={(e) => setForgotForm({ ...forgotForm, username: e.target.value })} 
+                                        className="w-full h-[40px] px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none" 
+                                        placeholder="e.g. john@email.com or @johndoe" />
+                                </div>
+                                <div>
+                                    <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">Your Role</label>
+                                    <select required value={forgotForm.role} onChange={(e) => setForgotForm({ ...forgotForm, role: e.target.value })}
+                                        className="w-full h-[40px] px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none">
+                                        <option value="patient">Patient</option>
+                                        <option value="doctor">Doctor</option>
+                                        <option value="pharmacist">Pharmacist</option>
+                                        <option value="caregiver">Caregiver</option>
+                                    </select>
+                                </div>
+                                <button type="submit" disabled={forgotStatus.loading} className="w-full h-[44px] bg-[#0056b2] hover:bg-[#004494] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                                    {forgotStatus.loading ? (
+                                        <><span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Submitting...</>
+                                    ) : 'Submit Request'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
