@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getPatient, updatePatient } from '../../api/api';
 import { PATIENT_PROFILE as INITIAL_PROFILE } from '../../data/mockData';
 
 const DOCTORS = [
@@ -53,6 +56,8 @@ function ProfileField({ label, field, type = 'text', profile, draft, editing, se
 }
 
 export default function PatientProfilePage() {
+    const { user } = useAuth();
+    const { data: realPatient } = useApi(() => getPatient(user.id), [user.id]);
     const [profile, setProfile] = useState(INITIAL_PROFILE);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(INITIAL_PROFILE);
@@ -62,11 +67,46 @@ export default function PatientProfilePage() {
     const [showAddCond, setShowAddCond] = useState(false);
     const [newCond, setNewCond] = useState('');
 
+    useEffect(() => {
+        if (realPatient) {
+            const p = {
+                firstName: realPatient.user.firstName,
+                lastName: realPatient.user.lastName,
+                email: realPatient.user.email,
+                avatar: realPatient.user.firstName[0].toUpperCase(),
+                dob: realPatient.dob ? new Date(realPatient.dob).toISOString().split('T')[0] : '1970-01-01',
+                gender: INITIAL_PROFILE.gender,
+                bloodType: realPatient.bloodType || 'Unknown',
+                weight: realPatient.weight || 'Unknown',
+                height: realPatient.height || 'Unknown',
+                phone: INITIAL_PROFILE.phone,
+                address: INITIAL_PROFILE.address,
+                allergies: realPatient.allergies || [],
+                conditions: realPatient.conditions || [],
+            };
+            setProfile(p);
+            setDraft(p);
+        }
+    }, [realPatient]);
+
     const age = new Date().getFullYear() - new Date(profile.dob).getFullYear();
 
-    const handleSave = () => {
-        setProfile(draft);
-        setEditing(false);
+    const handleSave = async () => {
+        try {
+            await updatePatient(user.id, {
+                firstName: draft.firstName,
+                lastName: draft.lastName,
+                email: draft.email,
+                dob: draft.dob,
+                bloodType: draft.bloodType,
+                weight: draft.weight,
+                height: draft.height
+            });
+            setProfile(draft);
+            setEditing(false);
+        } catch(err) {
+            console.error('Failed to update profile', err);
+        }
     };
 
     const handleCancel = () => {
@@ -74,25 +114,39 @@ export default function PatientProfilePage() {
         setEditing(false);
     };
 
-    const addAllergy = () => {
+    const addAllergy = async () => {
         if (!newAllergy.trim()) return;
-        setProfile(p => ({ ...p, allergies: [...p.allergies, newAllergy.trim()] }));
-        setDraft(p => ({ ...p, allergies: [...p.allergies, newAllergy.trim()] }));
+        const updated = [...profile.allergies, newAllergy.trim()];
+        setProfile(p => ({ ...p, allergies: updated }));
+        setDraft(p => ({ ...p, allergies: updated }));
         setNewAllergy('');
         setShowAddAllergy(false);
+        await updatePatient(user.id, { allergies: updated }).catch(console.error);
     };
 
-    const removeAllergy = (a) => setProfile(p => ({ ...p, allergies: p.allergies.filter(x => x !== a) }));
+    const removeAllergy = async (a) => {
+        const updated = profile.allergies.filter(x => x !== a);
+        setProfile(p => ({ ...p, allergies: updated }));
+        setDraft(p => ({ ...p, allergies: updated }));
+        await updatePatient(user.id, { allergies: updated }).catch(console.error);
+    };
 
-    const addCondition = () => {
+    const addCondition = async () => {
         if (!newCond.trim()) return;
-        setProfile(p => ({ ...p, conditions: [...p.conditions, newCond.trim()] }));
-        setDraft(p => ({ ...p, conditions: [...p.conditions, newCond.trim()] }));
+        const updated = [...profile.conditions, newCond.trim()];
+        setProfile(p => ({ ...p, conditions: updated }));
+        setDraft(p => ({ ...p, conditions: updated }));
         setNewCond('');
         setShowAddCond(false);
+        await updatePatient(user.id, { conditions: updated }).catch(console.error);
     };
 
-    const removeCondition = (c) => setProfile(p => ({ ...p, conditions: p.conditions.filter(x => x !== c) }));
+    const removeCondition = async (c) => {
+        const updated = profile.conditions.filter(x => x !== c);
+        setProfile(p => ({ ...p, conditions: updated }));
+        setDraft(p => ({ ...p, conditions: updated }));
+        await updatePatient(user.id, { conditions: updated }).catch(console.error);
+    };
 
 
     return (
