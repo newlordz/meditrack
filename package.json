@@ -4,7 +4,7 @@
     "scripts": {
         "install": "npm --prefix server install && npm --prefix client install",
         "build": "npm --prefix client run build && cd server && npx prisma generate",
-        "start": "cd server && npx prisma migrate deploy && npm start"
+        "start": "cd server && npm start"
     },
     "engines": {
         "node": ">=20.19.0"
