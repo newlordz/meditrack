@@ -228,6 +228,12 @@ export default function AdminDashboardPage() {
         showToast('Clearing system logs...');
         try {
             await clearSystemLogs();
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('meditrack_') && key !== 'meditrack_user') {
+                    localStorage.removeItem(key);
+                }
+            });
+            window.dispatchEvent(new Event('localStorageUpdated'));
             showToast('All system logs have been cleared successfully. System is now fresh!');
             refetchRequests();
             refetchPatients();
