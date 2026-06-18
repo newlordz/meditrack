@@ -13,6 +13,13 @@ export default function ForcePasswordResetPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const hasMinLength = newPassword.length >= 8;
+    const hasUppercase = /[A-Z]/.test(newPassword);
+    const hasLowercase = /[a-z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
+    const allSatisfied = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -22,8 +29,8 @@ export default function ForcePasswordResetPage() {
             return;
         }
 
-        if (newPassword.length < 6) {
-            setError('New password must be at least 6 characters');
+        if (!allSatisfied) {
+            setError('New password does not meet complexity requirements');
             return;
         }
 
@@ -78,12 +85,47 @@ export default function ForcePasswordResetPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">New Password <span className="text-xs text-slate-400 font-normal ml-2">(Min 6 characters)</span></label>
+                            <label className="block text-sm font-bold text-slate-700 mb-2">New Password</label>
                             <input
                                 type="password" required
                                 value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                                className="block w-full px-4 h-12 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900"
+                                className="block w-full px-4 h-12 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-900 mb-3"
                             />
+                            
+                            {/* Complexity checklist */}
+                            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2 text-xs font-semibold text-slate-600">
+                                <p className="font-bold text-slate-700 uppercase tracking-wider text-[10px] mb-2">New Password Requirements</p>
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-[16px] ${hasMinLength ? 'text-emerald-500 font-bold' : 'text-slate-300'}`}>
+                                        {hasMinLength ? 'check' : 'circle'}
+                                    </span>
+                                    <span className={hasMinLength ? 'text-slate-800 font-bold' : ''}>At least 8 characters</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-[16px] ${hasUppercase ? 'text-emerald-500 font-bold' : 'text-slate-300'}`}>
+                                        {hasUppercase ? 'check' : 'circle'}
+                                    </span>
+                                    <span className={hasUppercase ? 'text-slate-800 font-bold' : ''}>At least 1 uppercase letter</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-[16px] ${hasLowercase ? 'text-emerald-500 font-bold' : 'text-slate-300'}`}>
+                                        {hasLowercase ? 'check' : 'circle'}
+                                    </span>
+                                    <span className={hasLowercase ? 'text-slate-800 font-bold' : ''}>At least 1 lowercase letter</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-[16px] ${hasNumber ? 'text-emerald-500 font-bold' : 'text-slate-300'}`}>
+                                        {hasNumber ? 'check' : 'circle'}
+                                    </span>
+                                    <span className={hasNumber ? 'text-slate-800 font-bold' : ''}>At least 1 numeric digit</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`material-symbols-outlined text-[16px] ${hasSpecial ? 'text-emerald-500 font-bold' : 'text-slate-300'}`}>
+                                        {hasSpecial ? 'check' : 'circle'}
+                                    </span>
+                                    <span className={hasSpecial ? 'text-slate-800 font-bold' : ''}>At least 1 special character</span>
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -98,8 +140,8 @@ export default function ForcePasswordResetPage() {
                         <div className="pt-2">
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                                disabled={loading || !allSatisfied || newPassword !== confirmPassword}
+                                className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-slate-300 disabled:shadow-none transition-all"
                             >
                                 {loading ? 'Updating...' : 'Update Password & Continue'}
                             </button>

@@ -1,34 +1,47 @@
 import { useState } from 'react';
-
-const ALL_LOGS = [
-    { id: 'LOG-1041', time: '09:47', date: '5 Mar 2026', patient: 'Ama Johanson', initials: 'AJ', drug: 'Lisinopril 10mg', qty: 30, pharmacist: 'Dr. Chen', action: 'Dispensed', batch: 'BT-20241', verified: true },
-    { id: 'LOG-1040', time: '09:31', date: '5 Mar 2026', patient: 'Kofi Mensah', initials: 'KM', drug: 'Metformin 500mg', qty: 60, pharmacist: 'Dr. Chen', action: 'Flagged', batch: 'BT-19988', verified: false },
-    { id: 'LOG-1039', time: '09:12', date: '5 Mar 2026', patient: 'Abena Owusu', initials: 'AO', drug: 'Aspirin 75mg', qty: 28, pharmacist: 'Dr. Chen', action: 'Dispensed', batch: 'BT-20105', verified: true },
-    { id: 'LOG-1038', time: '08:58', date: '5 Mar 2026', patient: 'Yaw Darko', initials: 'YD', drug: 'Warfarin 5mg', qty: 14, pharmacist: 'Dr. Chen', action: 'Under Review', batch: 'BT-19901', verified: false },
-    { id: 'LOG-1037', time: '08:40', date: '5 Mar 2026', patient: 'Efua Asante', initials: 'EA', drug: 'Omeprazole 20mg', qty: 14, pharmacist: 'Dr. Chen', action: 'Dispensed', batch: 'BT-20241', verified: true },
-    { id: 'LOG-1036', time: '15:22', date: '4 Mar 2026', patient: 'Kwame Bediako', initials: 'KB', drug: 'Amlodipine 5mg', qty: 30, pharmacist: 'Dr. Chen', action: 'Dispensed', batch: 'BT-20099', verified: true },
-    { id: 'LOG-1035', time: '14:10', date: '4 Mar 2026', patient: 'Nana Ama Boateng', initials: 'NB', drug: 'Levothyroxine 50mcg', qty: 30, pharmacist: 'Dr. Chen', action: 'Dispensed', batch: 'BT-19980', verified: true },
-    { id: 'LOG-1034', time: '13:44', date: '4 Mar 2026', patient: 'Kwesi Ofori', initials: 'KO', drug: 'Glibenclamide 5mg', qty: 60, pharmacist: 'Dr. Chen', action: 'Dispensed', batch: 'BT-20033', verified: true },
-    { id: 'LOG-1033', time: '11:05', date: '4 Mar 2026', patient: 'Akua Sarpong', initials: 'AS', drug: 'Clopidogrel 75mg', qty: 28, pharmacist: 'Dr. Chen', action: 'Refill', batch: 'BT-19966', verified: true },
-    { id: 'LOG-1032', time: '10:30', date: '4 Mar 2026', patient: 'Ama Johanson', initials: 'AJ', drug: 'Metformin 500mg', qty: 60, pharmacist: 'Dr. Chen', action: 'Refill', batch: 'BT-19988', verified: true },
-];
+import { useApi } from '../../hooks/useApi';
+import { getMedicationLogs } from '../../api/api';
 
 const ACTION_CFG = {
-    'Dispensed': { badge: 'bg-emerald-100 text-emerald-700', icon: 'check_circle', dot: 'bg-emerald-500' },
-    'Flagged': { badge: 'bg-rose-100 text-rose-700', icon: 'flag', dot: 'bg-rose-500' },
-    'Under Review': { badge: 'bg-amber-100 text-amber-700', icon: 'rate_review', dot: 'bg-amber-500' },
-    'Refill': { badge: 'bg-blue-100 text-blue-700', icon: 'autorenew', dot: 'bg-blue-500' },
+    'TAKEN': { label: 'Taken', badge: 'bg-emerald-100 text-emerald-700', icon: 'check_circle', dot: 'bg-emerald-500' },
+    'MISSED': { label: 'Missed', badge: 'bg-rose-100 text-rose-700', icon: 'flag', dot: 'bg-rose-500' },
+    'SKIPPED': { label: 'Skipped', badge: 'bg-amber-100 text-amber-700', icon: 'rate_review', dot: 'bg-amber-500' },
+    'Dispensed': { label: 'Dispensed', badge: 'bg-emerald-100 text-emerald-700', icon: 'check_circle', dot: 'bg-emerald-500' },
+    'Flagged': { label: 'Flagged', badge: 'bg-rose-100 text-rose-700', icon: 'flag', dot: 'bg-rose-500' },
+    'Under Review': { label: 'Under Review', badge: 'bg-amber-100 text-amber-700', icon: 'rate_review', dot: 'bg-amber-500' },
+    'Refill': { label: 'Refill', badge: 'bg-blue-100 text-blue-700', icon: 'autorenew', dot: 'bg-blue-500' },
 };
 
-const DATES = ['All Dates', '5 Mar 2026', '4 Mar 2026'];
-const ACTIONS = ['All Actions', 'Dispensed', 'Flagged', 'Under Review', 'Refill'];
+const ACTIONS = ['All Actions', 'TAKEN', 'MISSED', 'SKIPPED', 'Dispensed', 'Flagged', 'Under Review', 'Refill'];
 
 export default function MedicationLogsPage() {
+    const { data: rawLogs, loading } = useApi(getMedicationLogs);
+    const logs = rawLogs || [];
+
     const [search, setSearch] = useState('');
     const [filterDate, setFilterDate] = useState('All Dates');
     const [filterAction, setFilterAction] = useState('All Actions');
 
-    const baseFiltered = ALL_LOGS.filter(log => {
+    const formattedLogs = logs.map(l => {
+        const dateObj = new Date(l.loggedAt);
+        return {
+            id: l.id.slice(0, 8).toUpperCase(),
+            date: dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+            time: dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            patient: l.patient,
+            initials: l.patient.split(' ').map(n => n[0]).join(''),
+            drug: l.drug,
+            qty: l.dosage || '1 dose',
+            action: l.action,
+            batch: l.pid || 'N/A',
+            verified: l.action === 'TAKEN' || l.action === 'Dispensed',
+            pharmacist: 'System Logged'
+        };
+    });
+
+    const DATES = ['All Dates', ...new Set(formattedLogs.map(l => l.date))];
+
+    const baseFiltered = formattedLogs.filter(log => {
         const matchSearch = log.patient.toLowerCase().includes(search.toLowerCase())
             || log.drug.toLowerCase().includes(search.toLowerCase())
             || log.id.toLowerCase().includes(search.toLowerCase());
@@ -38,8 +51,8 @@ export default function MedicationLogsPage() {
 
     const filtered = baseFiltered.filter(log => filterAction === 'All Actions' || log.action === filterAction);
 
-    const totalDispensed = baseFiltered.filter(l => l.action === 'Dispensed').length;
-    const totalFlagged = baseFiltered.filter(l => l.action === 'Flagged' || l.action === 'Under Review').length;
+    const totalDispensed = baseFiltered.filter(l => l.action === 'TAKEN' || l.action === 'Dispensed').length;
+    const totalFlagged = baseFiltered.filter(l => l.action === 'MISSED' || l.action === 'SKIPPED' || l.action === 'Flagged' || l.action === 'Under Review').length;
     const totalRefills = baseFiltered.filter(l => l.action === 'Refill').length;
     const verified = filtered.filter(l => l.verified).length;
 
@@ -126,8 +139,16 @@ export default function MedicationLogsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filtered.map(log => {
-                                    const cfg = ACTION_CFG[log.action] || { badge: 'bg-slate-100 text-slate-500', icon: 'info', dot: 'bg-slate-400' };
+                                {loading && (
+                                    <tr>
+                                        <td colSpan={8} className="text-center py-12 text-slate-400">
+                                            <span className="material-symbols-outlined text-3xl mb-2 block animate-spin">progress_activity</span>
+                                            <p className="text-sm font-semibold">Loading logs from database...</p>
+                                        </td>
+                                    </tr>
+                                )}
+                                {!loading && filtered.map(log => {
+                                    const cfg = ACTION_CFG[log.action] || { label: log.action, badge: 'bg-slate-100 text-slate-500', icon: 'info', dot: 'bg-slate-400' };
                                     return (
                                         <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="px-4 py-3 font-mono text-xs text-slate-500">{log.id}</td>
@@ -146,7 +167,7 @@ export default function MedicationLogsPage() {
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full ${cfg.badge}`}>
                                                     <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                                                    {log.action}
+                                                    {cfg.label || log.action}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 font-mono text-xs text-slate-400">{log.batch}</td>

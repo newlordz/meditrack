@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { generateSecret, verifyTOTP } from '../utils/totp.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -18,7 +19,8 @@ router.post('/login', async (req, res) => {
             where: {
                 OR: [
                     { email: email },
-                    { username: email }
+                    { username: email },
+                    { staffNumber: email }
                 ]
             },
             include: {
@@ -34,6 +36,15 @@ router.post('/login', async (req, res) => {
 
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Check if MFA is enabled
+        if (user.mfaEnabled) {
+            return res.json({
+                requireMfa: true,
+                userId: user.id,
+                email: user.email
+            });
         }
 
         // Return user details without password
@@ -57,6 +68,115 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Server error during login' });
+    }
+});
+
+// POST /api/auth/verify-mfa
+router.post('/verify-mfa', async (req, res) => {
+    try {
+        const { userId, code } = req.body;
+        if (!userId || !code) {
+            return res.status(400).json({ error: 'User ID and verification code are required' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { patientInfo: true }
+        });
+
+        if (!user || !user.mfaEnabled || !user.mfaSecret) {
+            return res.status(400).json({ error: 'MFA is not enabled for this user' });
+        }
+
+        const isValid = verifyTOTP(code, user.mfaSecret);
+        if (!isValid) {
+            return res.status(401).json({ error: 'Invalid MFA code' });
+        }
+
+        // Return user details without password
+        const { passwordHash, ...safeUser } = user;
+        
+        let id = safeUser.id;
+        if (safeUser.role === 'PATIENT' && safeUser.patientInfo) {
+             id = safeUser.patientInfo.id;
+        }
+
+        res.json({
+            id: id,
+            userId: safeUser.id,
+            email: safeUser.email,
+            name: `${safeUser.role === 'DOCTOR' ? 'Dr. ' : ''}${safeUser.firstName} ${safeUser.lastName}`,
+            role: safeUser.role.toLowerCase(),
+            status: 'active',
+            mustChangePassword: safeUser.mustChangePassword
+        });
+    } catch (error) {
+        console.error('MFA verification error:', error);
+        res.status(500).json({ error: 'Server error during MFA verification' });
+    }
+});
+
+// POST /api/auth/enable-mfa
+router.post('/enable-mfa', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        
+        const secret = generateSecret();
+        res.json({
+            secret,
+            qrCodeUrl: `https://quickchart.io/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(`otpauth://totp/MediTrack:${userId}?secret=${secret}&issuer=MediTrack`)}`
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to initiate MFA setup' });
+    }
+});
+
+// POST /api/auth/confirm-mfa
+router.post('/confirm-mfa', async (req, res) => {
+    try {
+        const { userId, secret, code } = req.body;
+        if (!userId || !secret || !code) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const isValid = verifyTOTP(code, secret);
+        if (!isValid) {
+            return res.status(400).json({ error: 'Invalid verification code. Setup failed.' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { mfaEnabled: true, mfaSecret: secret }
+        });
+
+        res.json({ message: 'MFA successfully enabled!' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to confirm MFA setup' });
+    }
+});
+
+// POST /api/auth/disable-mfa
+router.post('/disable-mfa', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { mfaEnabled: false, mfaSecret: null }
+        });
+
+        res.json({ message: 'MFA successfully disabled!' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to disable MFA' });
     }
 });
 

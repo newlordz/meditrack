@@ -1,15 +1,7 @@
 import { useState, useEffect } from 'react';
-
-
-// Each dose carries a prescribingDoctor field — in production this comes from the DB.
-// We enrich the mock doses with this field for the Share feature.
-const DOCTOR_MAP = {
-    'Aspirin': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
-    'Omega-3': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
-    'Vitamin D3': { name: 'Dr. Kofi Acheampong', specialty: 'Endocrinologist', email: 'k.acheampong@clinic.gh' },
-    'Metformin': { name: 'Dr. Kofi Acheampong', specialty: 'Endocrinologist', email: 'k.acheampong@clinic.gh' },
-    'Lisinopril': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
-};
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getPatient } from '../../api/api';
 
 function readDoses() {
     const saved = localStorage.getItem('meditrack_patient_doses');
@@ -28,6 +20,9 @@ function readDoses() {
 }
 
 export default function InsightsPage() {
+    const { user } = useAuth();
+    const { data: realPatient } = useApi(() => getPatient(user.id), [user.id]);
+    
     const [shareModal, setShareModal] = useState(false);
     const [sentDoctors, setSentDoctors] = useState([]);
 
@@ -94,8 +89,40 @@ export default function InsightsPage() {
     const doctorGroups = (() => {
         const groups = {};
         adherenceStats.doses.forEach(d => {
-            const doc = DOCTOR_MAP[d.name];
-            if (!doc) return;
+            let doc = null;
+            if (realPatient && realPatient.prescriptions) {
+                const matchedPresc = realPatient.prescriptions.find(p => 
+                    p.drugName.toLowerCase().includes(d.name.toLowerCase()) || 
+                    d.name.toLowerCase().includes(p.drugName.toLowerCase())
+                );
+                if (matchedPresc && matchedPresc.prescriber) {
+                    doc = {
+                        name: `Dr. ${matchedPresc.prescriber.firstName} ${matchedPresc.prescriber.lastName}`,
+                        specialty: 'Prescribing Doctor',
+                        email: matchedPresc.prescriber.email || ''
+                    };
+                }
+            }
+            
+            if (!doc && realPatient && realPatient.doctor) {
+                doc = {
+                    name: `Dr. ${realPatient.doctor.firstName} ${realPatient.doctor.lastName}`,
+                    specialty: 'Primary Physician',
+                    email: realPatient.doctor.email
+                };
+            }
+            
+            if (!doc) {
+                const fallbackMap = {
+                    'Aspirin': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
+                    'Omega-3': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
+                    'Vitamin D3': { name: 'Dr. Kofi Acheampong', specialty: 'Endocrinologist', email: 'k.acheampong@clinic.gh' },
+                    'Metformin': { name: 'Dr. Kofi Acheampong', specialty: 'Endocrinologist', email: 'k.acheampong@clinic.gh' },
+                    'Lisinopril': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
+                };
+                doc = fallbackMap[d.name] || { name: 'Dr. Sarah Chen', specialty: 'General Physician', email: 's.chen@meditrack.health' };
+            }
+            
             if (!groups[doc.name]) groups[doc.name] = { ...doc, meds: [] };
             groups[doc.name].meds.push(d);
         });

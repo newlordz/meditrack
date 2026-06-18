@@ -299,7 +299,7 @@ export default function PatientRosterPage() {
             patient: selectedPatient.name,
             drug: prescriptionForm.drug,
             qty: parseInt(prescriptionForm.qty, 10),
-            doctor: 'Dr. Current User', // Mock doctor name
+            doctor: user?.name || 'Dr. Sarah Chen', // Logged-in doctor's name
             urgency: prescriptionForm.urgency,
             instructions: prescriptionForm.instructions,
             timestamp: new Date().toISOString()

@@ -12,6 +12,7 @@ router.get('/', async (req, res) => {
             include: {
                 user: { select: { firstName: true, lastName: true, email: true } },
                 caregiver: { select: { firstName: true, lastName: true } },
+                doctor: { select: { id: true, firstName: true, lastName: true, email: true } },
                 prescriptions: { where: { status: 'ACTIVE' } },
                 escalations: { where: { status: 'ACTIVE' } },
             },
@@ -30,6 +31,8 @@ router.get('/', async (req, res) => {
             initials: `${p.user.firstName[0]}${p.user.lastName[0]}`,
             email: p.user.email,
             doctorId: p.doctorId,
+            doctor: p.doctor,
+            doctorName: p.doctor ? `Dr. ${p.doctor.firstName} ${p.doctor.lastName}` : null,
             dob: p.dob,
             bloodType: p.bloodType,
             conditions: p.conditions,
@@ -54,6 +57,7 @@ router.get('/:id', async (req, res) => {
             where: { id },
             include: {
                 user: { select: { firstName: true, lastName: true, email: true } },
+                doctor: { select: { id: true, firstName: true, lastName: true, email: true } },
                 prescriptions: { include: { prescriber: { select: { firstName: true, lastName: true } } } },
                 schedules: { include: { prescription: true, logs: { orderBy: { loggedAt: 'desc' }, take: 1 } } },
                 escalations: true,

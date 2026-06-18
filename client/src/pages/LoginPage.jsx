@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { ROLE_ROUTES } from '../context/authConstants';
 import MFAInput from '../components/MFAInput';
-import { loginUser, submitPasswordResetRequest } from '../api/api';
+import { loginUser, verifyMfa, submitPasswordResetRequest } from '../api/api';
 
 const MAIN_ROLE_CARDS = [
     { key: 'patient', label: 'Patient', desc: 'View records & appointments', icon: 'person' },
@@ -20,6 +20,10 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [mfaCode, setMfaCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    
+    // MFA States
+    const [mfaRequired, setMfaRequired] = useState(false);
+    const [mfaUserId, setMfaUserId] = useState('');
 
     const [error, setError] = useState('');
     
@@ -48,6 +52,27 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLoading(true);
         setError('');
+
+        if (mfaRequired) {
+            try {
+                const userData = await verifyMfa(mfaUserId, mfaCode);
+                login({
+                    email: userData.email,
+                    name: userData.name,
+                    id: userData.id,
+                    userId: userData.userId,
+                    role: userData.role || selectedRole,
+                    mfaVerified: true,
+                    mustChangePassword: userData.mustChangePassword,
+                });
+                setIsLoading(false);
+                navigate(ROLE_ROUTES[selectedRole]);
+            } catch (err) {
+                setError(err.message || 'Invalid MFA code. Please try again.');
+                setIsLoading(false);
+            }
+            return;
+        }
 
         let loginIdentifier = email.trim();
         // If identifier does not contain an '@' sign (i.e. not an email), treat it as a medical ID and prepend '@'
@@ -79,6 +104,13 @@ export default function LoginPage() {
         try {
             const userData = await loginUser(loginIdentifier, password);
             
+            if (userData.requireMfa) {
+                setMfaUserId(userData.userId);
+                setMfaRequired(true);
+                setIsLoading(false);
+                return;
+            }
+            
             // Validate role if it's not admin
             if (userData.role !== selectedRole && userData.role) {
                 const displayRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1);
@@ -99,7 +131,7 @@ export default function LoginPage() {
                 id: userData.id,
                 userId: userData.userId,
                 role: userData.role || selectedRole,
-                mfaVerified: mfaCode.length === 6,
+                mfaVerified: false,
                 mustChangePassword: userData.mustChangePassword,
             });
             setIsLoading(false);
@@ -203,106 +235,145 @@ export default function LoginPage() {
                     <div className="bg-white p-5 sm:p-8 rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200 relative overflow-hidden">
                         {/* Form Header */}
                         <div className="mb-4">
-                            <h2 className="text-[24px] font-bold text-slate-900 mb-1 leading-tight">Secure Sign In</h2>
-                            <p className="text-[14px] text-slate-500 leading-normal">Enter your credentials to continue.</p>
+                            <h2 className="text-[24px] font-bold text-slate-900 mb-1 leading-tight">
+                                {mfaRequired ? 'Security Verification' : 'Secure Sign In'}
+                            </h2>
+                            <p className="text-[14px] text-slate-500 leading-normal">
+                                {mfaRequired ? 'Enter the verification code to continue.' : 'Enter your credentials to continue.'}
+                            </p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Email */}
-                            <div>
-                                <label className="block text-[14px] font-semibold text-slate-700 mb-1.5" htmlFor="login-email">
-                                    Email or Medical ID
-                                </label>
-                                <div className="relative flex items-center">
-                                    <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[18px] pointer-events-none">
-                                        alternate_email
-                                    </span>
-                                    <input
-                                        id="login-email"
-                                        type="text"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="e.g. dr.smith@meditrack.com"
-                                        className="w-full pl-10 pr-4 h-[42px] rounded-xl border border-slate-200 bg-slate-50
-                                            focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none placeholder:text-slate-400 leading-normal"
-                                    />
+                        {mfaRequired ? (
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                <div className="pt-2">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <button type="button" onClick={() => setMfaRequired(false)} className="text-slate-400 hover:text-slate-600 mr-2 flex items-center transition-colors">
+                                            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+                                        </button>
+                                        <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+                                        <span className="text-[14px] font-bold text-slate-900 leading-normal">Multi-Factor Authentication</span>
+                                    </div>
+                                    <p className="text-[13px] text-slate-500 mb-4 leading-relaxed">
+                                        A 6-digit verification code is required. Enter the code from your authenticator app to authorize your session.
+                                    </p>
+                                    <div className="flex items-center justify-center py-2 bg-slate-50 rounded-2xl border border-slate-100 mb-2">
+                                        <MFAInput length={6} onComplete={(code) => setMfaCode(code)} />
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Password */}
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <label className="block text-[14px] font-semibold text-slate-700" htmlFor="login-password">Password</label>
-                                    <button type="button" onClick={() => setIsForgotOpen(true)} className="text-[13px] text-primary font-bold hover:underline transition-all">Forgot password?</button>
-                                </div>
-                                <div className="relative flex items-center">
-                                    <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[18px] pointer-events-none">
-                                        lock
-                                    </span>
-                                    <input
-                                        id="login-password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        className="w-full pl-10 pr-10 h-[42px] rounded-xl border border-slate-200 bg-slate-50
-                                            focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none tracking-widest placeholder:tracking-normal placeholder:text-slate-400 leading-normal"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-2 text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center p-2 rounded-lg"
-                                    >
-                                        <span className="material-symbols-outlined text-[18px] block">
-                                            {showPassword ? 'visibility_off' : 'visibility'}
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* MFA Section */}
-                            <div className="pt-2">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
-                                    <span className="text-[14px] font-bold text-slate-900 leading-normal">Multi-Factor Authentication</span>
-                                </div>
-                                <p className="text-[13px] text-slate-500 mb-3 leading-relaxed">
-                                    Enter the 6-digit code from your authenticator app or SMS.
-                                </p>
-                                <div className="flex items-center">
-                                    <MFAInput length={6} onComplete={(code) => setMfaCode(code)} />
-                                </div>
-                            </div>
-
-                            {/* Error Message */}
-                            {error && (
-                                <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                                    <span className="material-symbols-outlined text-rose-500 text-[18px] flex-shrink-0">error</span>
-                                    <p className="text-[13px] text-rose-700 font-medium">{error}</p>
-                                </div>
-                            )}
-
-                            {/* Submit Button */}
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full bg-[#0056b2] hover:bg-[#004494] text-white font-bold h-[44px] px-4 rounded-xl
-                                    transition-all shadow-lg shadow-[#0056b2]/25 mt-3 flex items-center justify-center gap-2 text-[15px]
-                                    disabled:opacity-70 disabled:cursor-not-allowed leading-normal"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                                        Authenticating...
-                                    </>
-                                ) : (
-                                    <>
-                                        Secure Access
-                                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                                    </>
+                                {/* Error Message */}
+                                {error && (
+                                    <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                                        <span className="material-symbols-outlined text-rose-500 text-[18px] flex-shrink-0">error</span>
+                                        <p className="text-[13px] text-rose-700 font-medium">{error}</p>
+                                    </div>
                                 )}
-                            </button>
-                        </form>
+
+                                {/* Submit Button */}
+                                <button
+                                    type="submit"
+                                    disabled={isLoading || mfaCode.length !== 6}
+                                    className="w-full bg-[#0056b2] hover:bg-[#004494] text-white font-bold h-[44px] px-4 rounded-xl
+                                        transition-all shadow-lg shadow-[#0056b2]/25 mt-3 flex items-center justify-center gap-2 text-[15px]
+                                        disabled:opacity-70 disabled:cursor-not-allowed leading-normal"
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Verify &amp; Sign In
+                                            <span className="material-symbols-outlined text-[18px]">login</span>
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                {/* Email */}
+                                <div>
+                                    <label className="block text-[14px] font-semibold text-slate-700 mb-1.5" htmlFor="login-email">
+                                        Email, Medical ID, or Staff Number
+                                    </label>
+                                    <div className="relative flex items-center">
+                                        <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[18px] pointer-events-none">
+                                            alternate_email
+                                        </span>
+                                        <input
+                                            id="login-email"
+                                            type="text"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="e.g. dr.smith@meditrack.com"
+                                            className="w-full pl-10 pr-4 h-[42px] rounded-xl border border-slate-200 bg-slate-50
+                                                focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none placeholder:text-slate-400 leading-normal"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Password */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="block text-[14px] font-semibold text-slate-700" htmlFor="login-password">Password</label>
+                                        <button type="button" onClick={() => setIsForgotOpen(true)} className="text-[13px] text-primary font-bold hover:underline transition-all">Forgot password?</button>
+                                    </div>
+                                    <div className="relative flex items-center">
+                                        <span className="material-symbols-outlined absolute left-3.5 text-slate-400 text-[18px] pointer-events-none">
+                                            lock
+                                        </span>
+                                        <input
+                                            id="login-password"
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="••••••••"
+                                            className="w-full pl-10 pr-10 h-[42px] rounded-xl border border-slate-200 bg-slate-50
+                                                focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none tracking-widest placeholder:tracking-normal placeholder:text-slate-400 leading-normal"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-2 text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center p-2 rounded-lg"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px] block">
+                                                {showPassword ? 'visibility_off' : 'visibility'}
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Error Message */}
+                                {error && (
+                                    <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                                        <span className="material-symbols-outlined text-rose-500 text-[18px] flex-shrink-0">error</span>
+                                        <p className="text-[13px] text-rose-700 font-medium">{error}</p>
+                                    </div>
+                                )}
+
+                                {/* Submit Button */}
+                                <button
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full bg-[#0056b2] hover:bg-[#004494] text-white font-bold h-[44px] px-4 rounded-xl
+                                        transition-all shadow-lg shadow-[#0056b2]/25 mt-3 flex items-center justify-center gap-2 text-[15px]
+                                        disabled:opacity-70 disabled:cursor-not-allowed leading-normal"
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                                            Authenticating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Secure Access
+                                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        )}
 
                         {/* Auth Form Footer Links */}
                         <div className="mt-5 text-center">
@@ -363,10 +434,10 @@ export default function LoginPage() {
                                         placeholder="e.g. John Doe" />
                                 </div>
                                 <div>
-                                    <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">Email or Medical ID</label>
+                                    <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">Email, Medical ID, or Staff Number</label>
                                     <input required type="text" value={forgotForm.username} onChange={(e) => setForgotForm({ ...forgotForm, username: e.target.value })} 
                                         className="w-full h-[40px] px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#e8f0fe] focus:border-primary transition-all text-[14px] outline-none" 
-                                        placeholder="e.g. john@email.com or @johndoe" />
+                                        placeholder="e.g. john@email.com, @johndoe, or MDT123456" />
                                 </div>
                                 <div>
                                     <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">Your Role</label>

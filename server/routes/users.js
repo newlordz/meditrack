@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
             id: s.id,
             name: `${s.role === 'DOCTOR' ? 'Dr. ' : ''}${s.firstName} ${s.lastName}`,
             email: s.email,
+            staffNumber: s.staffNumber,
             role: s.role.toLowerCase(),
             status: 'active',
             joined: s.createdAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -50,12 +51,18 @@ router.post('/', async (req, res) => {
         const passwordHash = await bcrypt.hash(password, 10);
         const userRole = role.toUpperCase();
 
+        let staffNumber = null;
+        if (userRole !== 'PATIENT' && userRole !== 'CAREGIVER') {
+            staffNumber = `MDT${Math.floor(Math.random() * 900000) + 100000}`;
+        }
+
         const user = await prisma.user.create({
             data: {
                 email,
                 username: username || null,
                 passwordHash,
                 mustChangePassword: true,
+                staffNumber,
                 role: userRole,
                 firstName,
                 lastName
@@ -95,8 +102,9 @@ router.patch('/:id/reset', async (req, res) => {
         const { id } = req.params;
         const { newPassword } = req.body;
 
-        if (!newPassword || newPassword.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':",./<>?]).{8,}$/;
+        if (!newPassword || !passwordRegex.test(newPassword)) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*).' });
         }
 
         const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -118,8 +126,9 @@ router.patch('/:id/change-password', async (req, res) => {
         const { id } = req.params;
         const { oldPassword, newPassword } = req.body;
 
-        if (!oldPassword || !newPassword || newPassword.length < 6) {
-            return res.status(400).json({ error: 'Missing fields or password too short' });
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':",./<>?]).{8,}$/;
+        if (!oldPassword || !newPassword || !passwordRegex.test(newPassword)) {
+            return res.status(400).json({ error: 'New password must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*).' });
         }
 
         const user = await prisma.user.findUnique({ where: { id } });

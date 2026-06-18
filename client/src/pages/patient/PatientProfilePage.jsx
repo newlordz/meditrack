@@ -3,11 +3,7 @@ import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { getPatient, updatePatient } from '../../api/api';
 import { PATIENT_PROFILE as INITIAL_PROFILE } from '../../data/mockData';
-
-const DOCTORS = [
-    { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', icon: 'favorite', color: 'bg-rose-50 text-rose-600', since: 'Jan 2022', prescribes: ['Aspirin 100mg', 'Lisinopril 10mg', 'Omega-3 1000mg'] },
-    { name: 'Dr. Kofi Acheampong', specialty: 'Endocrinologist', icon: 'biotech', color: 'bg-violet-50 text-violet-600', since: 'Mar 2023', prescribes: ['Metformin 500mg', 'Vitamin D3 4000IU'] },
-];
+import MFASettingsCard from '../../components/MFASettingsCard';
 
 const EMERGENCY_CONTACTS = [
     { name: 'Kwame Johanson', relation: 'Spouse', phone: '+233 24 555 9876', icon: 'person' },
@@ -56,8 +52,57 @@ function ProfileField({ label, field, type = 'text', profile, draft, editing, se
 }
 
 export default function PatientProfilePage() {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const { data: realPatient } = useApi(() => getPatient(user.id), [user.id]);
+
+    const getDynamicDoctorsList = () => {
+        if (!realPatient) return [];
+        const docMap = new Map();
+        
+        // Add primary doctor if present
+        if (realPatient.doctor) {
+            const docId = realPatient.doctor.id;
+            const name = `Dr. ${realPatient.doctor.firstName} ${realPatient.doctor.lastName}`;
+            docMap.set(docId, {
+                id: docId,
+                name,
+                email: realPatient.doctor.email,
+                specialty: 'Primary Care Physician',
+                icon: 'favorite',
+                color: 'bg-rose-50 text-rose-600',
+                since: realPatient.createdAt ? new Date(realPatient.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Jan 2024',
+                prescribes: []
+            });
+        }
+        
+        // Add doctors from prescriptions
+        if (realPatient.prescriptions && Array.isArray(realPatient.prescriptions)) {
+            realPatient.prescriptions.forEach(presc => {
+                if (presc.prescriber) {
+                    const prescId = presc.prescriberId || presc.prescriber.id || `presc_${presc.prescriber.firstName}_${presc.prescriber.lastName}`;
+                    const name = `Dr. ${presc.prescriber.firstName} ${presc.prescriber.lastName}`;
+                    if (!docMap.has(prescId)) {
+                        docMap.set(prescId, {
+                            id: prescId,
+                            name,
+                            email: presc.prescriber.email || '',
+                            specialty: 'Prescribing Doctor',
+                            icon: 'stethoscope',
+                            color: 'bg-blue-50 text-blue-600',
+                            since: 'Active',
+                            prescribes: []
+                        });
+                    }
+                    const docObj = docMap.get(prescId);
+                    if (!docObj.prescribes.includes(presc.drugName)) {
+                        docObj.prescribes.push(presc.drugName);
+                    }
+                }
+            });
+        }
+        
+        return Array.from(docMap.values());
+    };
     const [profile, setProfile] = useState(INITIAL_PROFILE);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(INITIAL_PROFILE);
@@ -232,6 +277,9 @@ export default function PatientProfilePage() {
                             </div>
                         </SectionCard>
 
+                        {/* MFA Settings */}
+                        <MFASettingsCard user={user} updateUser={updateUser} />
+
                         {/* Allergies */}
                         <SectionCard
                             title="Known Allergies"
@@ -309,8 +357,11 @@ export default function PatientProfilePage() {
                         {/* Prescribing Doctors */}
                         <SectionCard title="Prescribing Doctors" icon="stethoscope">
                             <div className="space-y-4">
-                                {DOCTORS.map(doc => (
-                                    <div key={doc.name} className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition-shadow">
+                                {getDynamicDoctorsList().length === 0 && (
+                                    <p className="text-sm text-slate-400 italic">No prescribing doctors on record.</p>
+                                )}
+                                {getDynamicDoctorsList().map(doc => (
+                                    <div key={doc.id || doc.name} className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition-shadow">
                                         <div className="flex items-center gap-3 mb-3">
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${doc.color}`}>
                                                 <span className="material-symbols-outlined">{doc.icon}</span>

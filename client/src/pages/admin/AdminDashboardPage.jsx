@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
-import { getPatients, getUsers, createUser, deleteUser as deleteStaffApi, deletePatient, resetUserPassword, updatePatient, getPasswordResetRequests, updatePasswordResetRequest } from '../../api/api';
+import { getPatients, getUsers, createUser, deleteUser as deleteStaffApi, deletePatient, resetUserPassword, updatePatient, getPasswordResetRequests, updatePasswordResetRequest, clearSystemLogs } from '../../api/api';
 
 const ROLE_OPTIONS = [
     { value: 'doctor', label: 'Doctor / Clinician', icon: 'stethoscope', color: 'text-blue-600 bg-blue-50' },
@@ -223,6 +223,20 @@ export default function AdminDashboardPage() {
         }
     };
 
+    const handleClearSystemLogs = async () => {
+        if (!window.confirm('WARNING: This will permanently delete all medication logs, clinical escalations, refill requests, and password reset requests. The system will start completely fresh. Are you sure you want to proceed?')) return;
+        showToast('Clearing system logs...');
+        try {
+            await clearSystemLogs();
+            showToast('All system logs have been cleared successfully. System is now fresh!');
+            refetchRequests();
+            refetchPatients();
+            refetchStaff();
+        } catch (err) {
+            showToast(`Failed to clear logs: ${err.message}`, 'error');
+        }
+    };
+
     const handleDeactivate = () => {
         showToast('Status feature pending integration.');
     };
@@ -372,7 +386,7 @@ export default function AdminDashboardPage() {
 
                         {/* Recent Staff */}
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                            <h3 className="font-black text-slate-900 mb-4">Registered Staff</h3>
+                            <h3 className="font-black text-slate-900 mb-4">Staff &amp; Caregivers</h3>
                             <div className="space-y-2">
                                 {staff.map(s => (
                                     <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
@@ -386,6 +400,20 @@ export default function AdminDashboardPage() {
                                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ROLE_BADGE[s.role]}`}>{s.role}</span>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+
+                        {/* Danger Zone */}
+                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6">
+                            <h3 className="font-bold text-rose-800 mb-1">Danger Zone</h3>
+                            <p className="text-sm text-rose-600 mb-4">These actions affect the entire Meditrack system and cannot be undone.</p>
+                            <div className="flex flex-wrap gap-3">
+                                <button
+                                    onClick={handleClearSystemLogs}
+                                    className="px-4 py-2 bg-rose-600 text-white font-bold rounded-xl text-sm hover:bg-rose-700 transition-colors shadow-sm"
+                                >
+                                    Reset System Logs (Start Fresh)
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -432,7 +460,7 @@ export default function AdminDashboardPage() {
                         {staffRoleFilter !== 'patient' && (
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <h3 className="font-black text-slate-900">Staff Members</h3>
+                                    <h3 className="font-black text-slate-900">Staff &amp; Caregivers</h3>
                                     <button onClick={() => setActiveSection('add-user')} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-xl text-xs font-bold hover:bg-amber-600 transition-colors whitespace-nowrap">
                                         <span className="material-symbols-outlined text-[16px]">person_add</span>
                                         <span className="hidden sm:inline">Add User</span>
@@ -444,13 +472,13 @@ export default function AdminDashboardPage() {
                                     <div className="divide-y divide-slate-50">
                                     {staff
                                         .filter(s => staffRoleFilter === 'all' || s.role === staffRoleFilter)
-                                        .filter(s => !staffSearch || s.name.toLowerCase().includes(staffSearch.toLowerCase()) || s.email.toLowerCase().includes(staffSearch.toLowerCase()))
+                                        .filter(s => !staffSearch || s.name.toLowerCase().includes(staffSearch.toLowerCase()) || s.email.toLowerCase().includes(staffSearch.toLowerCase()) || (s.staffNumber && s.staffNumber.toLowerCase().includes(staffSearch.toLowerCase())))
                                         .map(s => (
                                         <div key={s.id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
                                             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{s.name[0]}</div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-bold text-slate-900 text-sm">{s.name}</p>
-                                                <p className="text-xs text-slate-400">{s.email} · Joined {s.joined}</p>
+                                                <p className="text-xs text-slate-400">{s.staffNumber ? `${s.staffNumber} · ` : ''}{s.email} · Joined {s.joined}</p>
                                             </div>
                                             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${ROLE_BADGE[s.role]}`}>{s.role}</span>
                                             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${s.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{s.status}</span>

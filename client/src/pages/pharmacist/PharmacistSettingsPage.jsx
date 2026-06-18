@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import { clearSystemLogs } from '../../api/api';
+import MFASettingsCard from '../../components/MFASettingsCard';
 
 const TOGGLE_SECTIONS = [
     {
@@ -38,15 +40,17 @@ const TOGGLE_SECTIONS = [
 
 const SHIFT_OPTIONS = ['07:00 – 15:00', '08:00 – 16:00', '09:00 – 17:00', '15:00 – 23:00', 'Night Shift'];
 
+
 export default function PharmacistSettingsPage() {
+    const { user, updateUser, logout } = useAuth();
     const [prefs, setPrefs] = useState({
         highConflict: true, pendingQueue: true, refillAlert: true, batchExpiry: true,
         requireScan: true, twoStep: false, auditLog: true,
         autoLogout: true, sessionAlert: true, dataExport: true,
     });
     const [shift, setShift] = useState('08:00 – 16:00');
-    const [displayName, setName] = useState('Dr. Sarah Chen');
-    const [email, setEmail] = useState('s.chen@meditrack.health');
+    const [displayName, setName] = useState(user?.name || 'Dr. Sarah Chen');
+    const [email, setEmail] = useState(user?.email || 's.chen@meditrack.health');
     const [saved, setSaved] = useState(false);
 
     const toggle = (key) => setPrefs(p => ({ ...p, [key]: !p[key] }));
@@ -57,13 +61,25 @@ export default function PharmacistSettingsPage() {
     };
 
     const [dangerMsg, setDangerMsg] = useState('');
-    const { logout } = useAuth();
     const navigate = useNavigate();
 
     const handleClearQueue = () => {
         if (!window.confirm('Are you sure you want to clear the entire pending dispense queue? This cannot be undone.')) return;
         setDangerMsg('Pending queue cleared successfully.');
         setTimeout(() => setDangerMsg(''), 3000);
+    };
+
+    const handleClearSystemLogs = async () => {
+        if (!window.confirm('WARNING: This will permanently delete all medication logs, clinical escalations, refill requests, and password reset requests. The system will start completely fresh. Are you sure you want to proceed?')) return;
+        setDangerMsg('Clearing logs...');
+        try {
+            await clearSystemLogs();
+            setDangerMsg('All system logs have been cleared successfully. System is now fresh!');
+            setTimeout(() => setDangerMsg(''), 4000);
+        } catch (err) {
+            setDangerMsg(`Failed to clear logs: ${err.message}`);
+            setTimeout(() => setDangerMsg(''), 4000);
+        }
     };
 
     const handleForceLogout = () => {
@@ -118,6 +134,9 @@ export default function PharmacistSettingsPage() {
                     </div>
                 </div>
 
+                {/* MFA Settings */}
+                <MFASettingsCard user={user} updateUser={updateUser} />
+
                 {/* Toggle sections */}
                 {TOGGLE_SECTIONS.map(section => (
                     <div key={section.title} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -159,6 +178,12 @@ export default function PharmacistSettingsPage() {
                             className="px-4 py-2 border border-rose-300 text-rose-700 font-bold rounded-xl text-sm hover:bg-rose-100 transition-colors"
                         >
                             Clear Pending Queue
+                        </button>
+                        <button
+                            onClick={handleClearSystemLogs}
+                            className="px-4 py-2 bg-rose-600 text-white font-bold rounded-xl text-sm hover:bg-rose-700 transition-colors shadow-sm"
+                        >
+                            Reset System Logs (Start Fresh)
                         </button>
                         <button
                             onClick={handleForceLogout}

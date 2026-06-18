@@ -1,74 +1,58 @@
 {
   "patients": [
     {
-      "id": "f97987b0-14b7-4bfe-852b-075a8aed51c6",
+      "id": "e1d3c573-5209-4c25-8a56-6e8b951e9b55",
       "pid": "P-001",
       "name": "Ama Johanson",
       "docId": null
     },
     {
-      "id": "49d8ad27-55fa-4e21-bb31-841882212c42",
+      "id": "085432b9-289b-425b-9d6b-f71a61db07ec",
       "pid": "P-002",
       "name": "John Doe",
       "docId": null
     },
     {
-      "id": "aa267dbe-b777-4203-a147-072f31081d06",
+      "id": "8c42cdd5-3b2a-43ce-a482-1bb784b64902",
       "pid": "P-003",
       "name": "Alice Smith",
       "docId": null
     },
     {
-      "id": "f2564a5a-4ea8-408d-b962-6e9e3f06cb46",
+      "id": "008f3952-6970-443a-b1fd-285dab26621e",
       "pid": "P-004",
       "name": "Yaw Darko",
       "docId": null
     },
     {
-      "id": "405f1e4d-2746-4194-a0ca-849c4bb9ec22",
+      "id": "02c9a915-9b55-4589-841c-0dc8f5b12468",
       "pid": "P-005",
       "name": "Sarah Green",
       "docId": null
     },
     {
-      "id": "5017e087-6ac8-41a7-bd76-fca58e382468",
+      "id": "74c9062e-8728-4729-aea3-b0913897190d",
       "pid": "P-006",
       "name": "Kwame Bediako",
       "docId": null
     },
     {
-      "id": "b2b1a35a-4dbf-4f2d-939e-167d94aa99b5",
+      "id": "32cd5ea2-b9a9-42fc-b19e-3beb0b348820",
       "pid": "P-007",
       "name": "Nana Ama Boateng",
       "docId": null
     },
     {
-      "id": "aec172ad-eb03-4b3b-8441-698e14fb4863",
+      "id": "9c9835cf-3086-4e07-9e35-dbab15c8fc1e",
       "pid": "P-008",
       "name": "Kwesi Ofori",
       "docId": null
-    },
-    {
-      "id": "f674aaa0-7df6-4475-b3a6-6c127f85a59b",
-      "pid": "P-862",
-      "name": "Vera  Acquah",
-      "docId": "b0dd9456-5251-4005-bab6-4c40b2cf4889"
-    },
-    {
-      "id": "c2d3663f-40ed-4d41-9107-eb10030aec9b",
-      "pid": "P-708",
-      "name": "Beatrice Amoah",
-      "docId": "b0dd9456-5251-4005-bab6-4c40b2cf4889"
     }
   ],
   "doctors": [
     {
-      "id": "b0dd9456-5251-4005-bab6-4c40b2cf4889",
+      "id": "6ceafa29-70d5-4e5c-8d4a-429b588314c0",
       "name": "Sarah Chen"
-    },
-    {
-      "id": "d2103987-c6fb-480d-9b9e-078301819d98",
-      "name": "Enoch Essel"
     }
   ]
 }

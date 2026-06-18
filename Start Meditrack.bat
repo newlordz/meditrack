@@ -1,4 +1,5 @@
 @echo off
+set PATH=C:\Program Files\nodejs;%PATH%
 echo Starting Meditrack Server...
 start cmd /k "cd server && npm run dev"
 

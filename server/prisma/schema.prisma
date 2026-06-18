@@ -13,9 +13,12 @@ model User {
   username           String?  @unique
   passwordHash       String
   mustChangePassword Boolean  @default(true)
+  staffNumber        String?  @unique
   role               Role
   firstName          String
   lastName           String
+  mfaEnabled         Boolean  @default(false)
+  mfaSecret          String?
 
   // Relationships
   patientInfo  Patient? @relation("PatientUser")

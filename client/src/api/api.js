@@ -85,8 +85,15 @@ export const getMedicationLogs = () => request('/logs');
 
 // ─── Users & Auth ────────────────────────────────────────────────────────────
 export const loginUser = (email, password) => post('/auth/login', { email, password });
+export const verifyMfa = (userId, code) => post('/auth/verify-mfa', { userId, code });
+export const enableMfa = (userId) => post('/auth/enable-mfa', { userId });
+export const confirmMfa = (userId, secret, code) => post('/auth/confirm-mfa', { userId, secret, code });
+export const disableMfa = (userId) => post('/auth/disable-mfa', { userId });
 export const getUsers = () => request('/users');
 export const createUser = (data) => post('/users', data);
 export const deleteUser = (id) => del(`/users/${id}`);
 export const resetUserPassword = (id, newPassword) => patch(`/users/${id}/reset`, { newPassword });
 export const changeMyPassword = (id, oldPassword, newPassword) => patch(`/users/${id}/change-password`, { oldPassword, newPassword });
+
+// ─── Admin Log Clearing ──────────────────────────────────────────────────────
+export const clearSystemLogs = () => post('/admin/clear-logs');

@@ -15,6 +15,7 @@ import escalationRoutes from './routes/escalations.js';
 import prescriptionRoutes from './routes/prescriptions.js';
 import refillRoutes from './routes/refills.js';
 import logRoutes from './routes/logs.js';
+import adminRoutes from './routes/admin.js';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/escalations', escalationRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/refills', refillRoutes);
 app.use('/api/logs', logRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, '../client/dist'), { index: false }));

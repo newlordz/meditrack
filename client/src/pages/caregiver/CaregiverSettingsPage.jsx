@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useNavigate } from 'react-router-dom';
+import MFASettingsCard from '../../components/MFASettingsCard';
 
 const NOTIFICATION_SETTINGS = [
     {
@@ -45,12 +46,12 @@ const NOTIFICATION_SETTINGS = [
 const RELATIONSHIP_OPTIONS = ['Primary Caregiver', 'Family Member', 'Nurse', 'Home Health Aide', 'Social Worker', 'Other'];
 
 export default function CaregiverSettingsPage() {
-    const { logout } = useAuth();
+    const { user, updateUser, logout } = useAuth();
     const navigate = useNavigate();
 
-    const [displayName, setName] = useState('Mary Johnson');
-    const [email, setEmail] = useState('mary.j@meditrack.health');
-    const [phone, setPhone] = useState('+1 (555) 012-3456');
+    const [displayName, setName] = useState(user?.name || `${user?.firstName || 'Mary'} ${user?.lastName || 'Johnson'}`);
+    const [email, setEmail] = useState(user?.email || 'mary.j@meditrack.health');
+    const [phone, setPhone] = useState(user?.phone || '+1 (555) 012-3456');
     const [relationship, setRelationship] = useState('Primary Caregiver');
     const [saved, setSaved] = useState(false);
     const [dangerMsg, setDangerMsg] = useState('');
@@ -121,7 +122,7 @@ export default function CaregiverSettingsPage() {
                         {/* Avatar row */}
                         <div className="flex items-center gap-4 mb-6">
                             <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white font-black text-xl flex-shrink-0">
-                                {displayName.split(' ').map(n => n[0]).join('')}
+                                {(displayName || '').split(' ').filter(Boolean).map(n => n[0]).join('')}
                             </div>
                             <div>
                                 <p className="font-bold text-slate-900">{displayName}</p>
@@ -168,6 +169,9 @@ export default function CaregiverSettingsPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* MFA Settings */}
+                <MFASettingsCard user={user} updateUser={updateUser} />
 
                 {/* Notification / Privacy toggle sections */}
                 {NOTIFICATION_SETTINGS.map(section => (
