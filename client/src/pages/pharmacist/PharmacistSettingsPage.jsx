@@ -70,7 +70,7 @@ export default function PharmacistSettingsPage() {
     };
 
     const handleClearSystemLogs = async () => {
-        if (!window.confirm('WARNING: This will permanently delete all medication logs, clinical escalations, refill requests, and password reset requests. The system will start completely fresh. Are you sure you want to proceed?')) return;
+        if (!window.confirm('WARNING: This will permanently delete all patients, users, medication logs, clinical escalations, refill requests, and password reset requests. The system will start completely fresh. Are you sure you want to proceed?')) return;
         setDangerMsg('Clearing logs...');
         try {
             await clearSystemLogs();

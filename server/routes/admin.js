@@ -13,9 +13,11 @@ router.post('/clear-logs', async (req, res) => {
             prisma.escalation.deleteMany(),
             prisma.refillRequest.deleteMany(),
             prisma.schedule.deleteMany(),
-            prisma.prescription.deleteMany()
+            prisma.prescription.deleteMany(),
+            prisma.patient.deleteMany(),
+            prisma.user.deleteMany()
         ]);
-        res.json({ message: 'All system logs, password resets, refill requests, prescriptions, schedules, and escalations cleared successfully. The system starts fresh!' });
+        res.json({ message: 'All system logs, password resets, refill requests, prescriptions, schedules, escalations, patients, and users cleared successfully. The system starts fresh!' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to clear system logs' });
