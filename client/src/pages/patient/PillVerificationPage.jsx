@@ -132,15 +132,8 @@ export default function PillVerificationPage() {
                 doses[idx].isCurrent = false;
                 doses[idx].loggedAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-                // If this was the 'next' dose, advance to the next upcoming one
-                if (doses[idx].status === 'taken') {
-                    const nextIdx = doses.findIndex(d => d.status === 'upcoming');
-                    if (nextIdx !== -1) {
-                        doses[nextIdx].status = 'next';
-                        doses[nextIdx].isCurrent = true;
-                    }
-                }
                 localStorage.setItem('meditrack_patient_doses', JSON.stringify(doses));
+                window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
             }
         }
         setTimeout(() => navigate('/patient/schedule'), 300);

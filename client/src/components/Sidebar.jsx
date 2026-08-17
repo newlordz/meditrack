@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { useLiveBadgeCount } from '../hooks/useLiveBadgeCount';
-import { PORTAL_USERS } from '../data/mockData';
 
 const NAV_ITEMS = {
     patient: [
@@ -47,8 +46,18 @@ export default function Sidebar() {
     const role = user?.role || 'patient';
     const items = NAV_ITEMS[role] || [];
     const roleLabel = ROLE_LABELS[role] || 'Portal';
-    const mockUser = PORTAL_USERS[role];
-    const initials = mockUser.name.split(' ').map(n => n[0]).join('');
+    
+    const displayName = user?.name || (role === 'doctor' ? 'Clinician' : role === 'pharmacist' ? 'Pharmacist' : role === 'caregiver' ? 'Caregiver' : 'Patient');
+    const displaySubtitle = user?.staffNumber ? `Staff ID: ${user.staffNumber}` : user?.email || (role === 'doctor' ? 'Attending Physician' : role === 'pharmacist' ? 'Lead Pharmacist' : 'Member');
+    const initials = displayName
+        .split(' ')
+        .filter(Boolean)
+        .map(n => n.replace(/[^a-zA-Z]/g, ''))
+        .filter(Boolean)
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || 'U';
 
     const liveEscalations = useLiveBadgeCount(
         'meditrack_escalations_v2',
@@ -124,8 +133,8 @@ export default function Sidebar() {
                         {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">{mockUser.name}</p>
-                        <p className="text-xs text-slate-400 truncate">{mockUser.subtitle}</p>
+                        <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
+                        <p className="text-xs text-slate-400 truncate">{displaySubtitle}</p>
                     </div>
                     <button
                         onClick={logout}
@@ -192,8 +201,19 @@ export function MobileHeader() {
     const role = user?.role || 'patient';
     const items = NAV_ITEMS[role] || [];
     const roleLabel = ROLE_LABELS[role] || 'Portal';
-    const mockUser = PORTAL_USERS[role];
-    const initials = mockUser.name.split(' ').map(n => n[0]).join('');
+    const mockUser = PORTAL_USERS[role] || { name: 'User', subtitle: 'Member' };
+    
+    const displayName = user?.name || mockUser.name;
+    const displaySubtitle = user?.staffNumber ? `Staff ID: ${user.staffNumber}` : user?.email || mockUser.subtitle;
+    const initials = displayName
+        .split(' ')
+        .filter(Boolean)
+        .map(n => n.replace(/[^a-zA-Z]/g, ''))
+        .filter(Boolean)
+        .map(n => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'U';
 
     const liveEscalations = useLiveBadgeCount(
         'meditrack_escalations_v2',
@@ -243,8 +263,8 @@ export function MobileHeader() {
                                     {initials}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-sm font-bold text-slate-900 truncate">{mockUser.name}</p>
-                                    <p className="text-xs text-slate-500 truncate">{mockUser.subtitle}</p>
+                                    <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
+                                    <p className="text-xs text-slate-500 truncate">{displaySubtitle}</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsOpen(false)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 bg-white rounded-full shadow-sm border border-slate-200 transition-colors">

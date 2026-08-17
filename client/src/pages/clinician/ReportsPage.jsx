@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { SHARED_PATIENTS } from '../../data/mockData';
 
 const REPORT_TEMPLATES = [
     {

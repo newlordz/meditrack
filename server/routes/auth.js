@@ -51,18 +51,22 @@ router.post('/login', async (req, res) => {
         const { passwordHash, ...safeUser } = user;
         
         let id = safeUser.id;
+        let profileCompleted = true;
         if (safeUser.role === 'PATIENT' && safeUser.patientInfo) {
              id = safeUser.patientInfo.id;
+             profileCompleted = safeUser.patientInfo.profileCompleted ?? false;
         }
 
         res.json({
             id: id,
             userId: safeUser.id, // we might need the actual User ID for the reset endpoint later
             email: safeUser.email,
+            staffNumber: safeUser.staffNumber || null,
             name: `${safeUser.role === 'DOCTOR' ? 'Dr. ' : ''}${safeUser.firstName} ${safeUser.lastName}`,
             role: safeUser.role.toLowerCase(),
             status: 'active',
-            mustChangePassword: safeUser.mustChangePassword
+            mustChangePassword: safeUser.mustChangePassword,
+            profileCompleted: profileCompleted
         });
 
     } catch (error) {
@@ -97,18 +101,22 @@ router.post('/verify-mfa', async (req, res) => {
         const { passwordHash, ...safeUser } = user;
         
         let id = safeUser.id;
+        let profileCompleted = true;
         if (safeUser.role === 'PATIENT' && safeUser.patientInfo) {
              id = safeUser.patientInfo.id;
+             profileCompleted = safeUser.patientInfo.profileCompleted ?? false;
         }
 
         res.json({
             id: id,
             userId: safeUser.id,
             email: safeUser.email,
+            staffNumber: safeUser.staffNumber || null,
             name: `${safeUser.role === 'DOCTOR' ? 'Dr. ' : ''}${safeUser.firstName} ${safeUser.lastName}`,
             role: safeUser.role.toLowerCase(),
             status: 'active',
-            mustChangePassword: safeUser.mustChangePassword
+            mustChangePassword: safeUser.mustChangePassword,
+            profileCompleted: profileCompleted
         });
     } catch (error) {
         console.error('MFA verification error:', error);

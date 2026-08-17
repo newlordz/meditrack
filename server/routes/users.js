@@ -71,6 +71,7 @@ router.post('/', async (req, res) => {
 
         if (userRole === 'PATIENT') {
             // Also create Patient profile
+            const { gender, phone, address, emergencyContactName, emergencyContactRelation, emergencyContactPhone } = req.body;
             const pidString = Math.floor(Math.random() * 900) + 100;
             const patient = await prisma.patient.create({
                 data: {
@@ -81,6 +82,13 @@ router.post('/', async (req, res) => {
                     bloodType: bloodType || 'Unknown',
                     weight: weight || 'Unknown',
                     height: height || 'Unknown',
+                    gender: gender || null,
+                    phone: phone || null,
+                    address: address || null,
+                    emergencyContactName: emergencyContactName || null,
+                    emergencyContactRelation: emergencyContactRelation || null,
+                    emergencyContactPhone: emergencyContactPhone || null,
+                    profileCompleted: Boolean(phone && emergencyContactName && emergencyContactPhone),
                     conditions: conditions || [],
                     allergies: allergies || []
                 }

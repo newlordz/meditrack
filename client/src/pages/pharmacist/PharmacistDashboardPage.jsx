@@ -1,23 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
-import { getEscalations, getRefillRequests } from '../../api/api';
-
-const INIT_PENDING = [
-    { id: 'RX-0041', patient: 'Nana Ama Boateng', initials: 'NB', drug: 'Atenolol 25mg', qty: 30, doctor: 'Dr. Mensah', urgency: 'urgent', instructions: 'Take 1 tablet daily in the morning' },
-    { id: 'RX-0039', patient: 'Kwesi Ofori', initials: 'KO', drug: 'Glibenclamide 5mg', qty: 60, doctor: 'Dr. Acheampong', urgency: 'normal', instructions: 'Take 1 tablet twice daily with meals' },
-    { id: 'RX-0038', patient: 'Akua Sarpong', initials: 'AS', drug: 'Clopidogrel 75mg', qty: 28, doctor: 'Dr. Mensah', urgency: 'urgent', instructions: 'Take 1 tablet once daily' },
-    { id: 'RX-0036', patient: 'Yaw Darko', initials: 'YD', drug: 'Warfarin 5mg', qty: 14, doctor: 'Dr. Frimpong', urgency: 'review', instructions: 'Take as directed, monitor INR weekly' },
-];
-
-const RECENT_ACTIVITY = [
-    { id: 1, time: '9:47 AM', patient: 'Ama Johanson', drug: 'Lisinopril 10mg', action: 'Dispensed', status: 'done' },
-    { id: 2, time: '9:31 AM', patient: 'Kofi Mensah', drug: 'Metformin 500mg', action: 'Conflict Flagged', status: 'warn' },
-    { id: 3, time: '9:12 AM', patient: 'Abena Owusu', drug: 'Aspirin 75mg', action: 'Dispensed', status: 'done' },
-    { id: 4, time: '8:58 AM', patient: 'Yaw Darko', drug: 'Warfarin 5mg', action: 'Under Review', status: 'info' },
-    { id: 5, time: '8:40 AM', patient: 'Efua Asante', drug: 'Omeprazole 20mg', action: 'Dispensed', status: 'done' },
-    { id: 6, time: '8:22 AM', patient: 'Kwame Bediako', drug: 'Amlodipine 5mg', action: 'Verified', status: 'done' },
-];
+import { getEscalations, getRefillRequests, getMedicationLogs, updateRefillStatus } from '../../api/api';
 
 const ACT_CFG = {
     done: { dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', icon: 'check_circle' },
@@ -48,94 +32,78 @@ const QUICK_LINKS = [
 ];
 
 export default function PharmacistDashboardPage() {
-    const [pending, setPending] = useState(() => {
-        const saved = localStorage.getItem('meditrack_pending_prescriptions');
-        return saved ? JSON.parse(saved) : INIT_PENDING;
-    });
-    const [activity] = useState(RECENT_ACTIVITY);
     const [dispensed, setDispensed] = useState(new Set());
-    const [conflicts, setConflicts] = useState([]);
     const [reviewTarget, setReviewTarget] = useState(null);
     const [rejectTarget, setRejectTarget] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [toast, setToast] = useState(null);
 
-    // Live API Data for Summary Cards
-    const { data: rawEscalations } = useApi(getEscalations);
-    const { data: rawRefills } = useApi(getRefillRequests);
+    // Live API Data for Summary Cards, Queue, and Logs
+    const { data: rawEscalations, refetch: refetchEscalations } = useApi(getEscalations);
+    const { data: rawRefills, refetch: refetchRefills } = useApi(getRefillRequests);
+    const { data: rawLogs, refetch: refetchLogs } = useApi(getMedicationLogs);
 
-    useEffect(() => {
-        const load = () => {
-            const saved = localStorage.getItem('meditrack_pending_prescriptions');
-            if (saved) setPending(JSON.parse(saved));
-            const esc = localStorage.getItem('meditrack_escalations_v3') || localStorage.getItem('meditrack_escalations_v2');
-            if (esc) setConflicts(JSON.parse(esc));
-        };
-        load();
-        window.addEventListener('rxDispensedOrPrescribed', load);
-        window.addEventListener('localStorageUpdated', load);
-        return () => {
-            window.removeEventListener('rxDispensedOrPrescribed', load);
-            window.removeEventListener('localStorageUpdated', load);
-        };
-    }, []);
+    const pendingRefills = (rawRefills || []).filter(r => r.pharmacyStatus === 'PENDING');
+    const liveActivity = (rawLogs || []).slice(0, 6).map(l => ({
+        id: l.id,
+        time: new Date(l.loggedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        patient: l.patient,
+        drug: `${l.drug} ${l.dosage}`,
+        action: l.action === 'TAKEN' ? 'Dispensed / Logged' : 'Flagged',
+        status: l.action === 'TAKEN' ? 'done' : 'warn',
+    }));
 
     const showToast = (msg, type = 'success') => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3000);
     };
 
-    const handleDispense = () => {
+    const handleDispense = async () => {
         if (!reviewTarget) return;
         const rx = reviewTarget;
         setDispensed(prev => new Set([...prev, rx.id]));
         setReviewTarget(null);
+        
+        try {
+            if (rx.id && !rx.id.startsWith('RX-MOCK')) {
+                await updateRefillStatus(rx.id, 'DISPENSED');
+            }
+            refetchRefills();
+            refetchLogs();
+        } catch(err) {
+            console.error(err);
+        }
+
         setTimeout(() => {
-            setPending(q => {
-                const updated = q.filter(r => r.id !== rx.id);
-                localStorage.setItem('meditrack_pending_prescriptions', JSON.stringify(updated));
-                return updated;
-            });
-            const newDose = { id: `DOSE-${Date.now()}`, name: rx.drug, dosage: `Qty: ${rx.qty}`, instruction: rx.instructions || 'Take as directed', time: '8:00 AM', status: 'upcoming', icon: 'medication', isCurrent: false };
-            const existingDoses = JSON.parse(localStorage.getItem('meditrack_patient_doses') || '[]');
-            if (!existingDoses.some(d => d.status === 'next')) { newDose.status = 'next'; newDose.isCurrent = true; }
-            localStorage.setItem('meditrack_patient_doses', JSON.stringify([...existingDoses, newDose]));
-            window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
             setDispensed(prev => { const s = new Set(prev); s.delete(rx.id); return s; });
-            showToast(`${rx.drug} dispensed to ${rx.patient}`);
+            showToast(`${rx.medication || rx.drug} dispensed to ${rx.name || rx.patient}`);
         }, 800);
     };
 
-    const confirmReject = () => {
+    const confirmReject = async () => {
         if (!rejectReason || !rejectTarget) return;
-        setPending(q => {
-            const updated = q.filter(r => r.id !== rejectTarget.id);
-            localStorage.setItem('meditrack_pending_prescriptions', JSON.stringify(updated));
-            return updated;
-        });
-        window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
-        showToast(`${rejectTarget.drug} rejected`, 'error');
+        try {
+            if (rejectTarget.id && !rejectTarget.id.startsWith('RX-MOCK')) {
+                await updateRefillStatus(rejectTarget.id, 'CANCELLED');
+            }
+            refetchRefills();
+        } catch(err) {
+            console.error(err);
+        }
+        showToast(`${rejectTarget.medication || rejectTarget.drug} rejected: ${rejectReason}`, 'error');
         setRejectTarget(null); setRejectReason('');
     };
 
-    const urgentCount = pending.filter(r => r.urgency === 'urgent').length;
-    const reviewCount = pending.filter(r => r.urgency === 'review').length;
-    
-    // Compute Live Numbers for KPI Cards
-    const livePendingCount = rawRefills ? rawRefills.filter(r => r.pharmacyStatus === 'PENDING').length : pending.length;
-    const liveUrgentCount = rawRefills ? rawRefills.filter(r => r.pharmacyStatus === 'PENDING' && r.urgency === 'urgent').length : urgentCount;
-    const liveConflictsCount = rawEscalations ? rawEscalations.filter(e => e.status === 'ACTIVE').length : conflicts.filter(c => c.status !== 'resolved').length;
-    
-    const verifiedToday = activity.filter(a => a.status === 'done').length + dispensed.size;
+    const livePendingCount = pendingRefills.length;
+    const liveConflictsCount = (rawEscalations || []).filter(e => e.status === 'ACTIVE').length;
+    const verifiedToday = (rawLogs || []).filter(l => l.action === 'TAKEN').length;
+    const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
     return (
-        <div className="flex flex-col min-h-screen relative bg-slate-50">
-
-            {/* Toast */}
+        <div className="flex flex-col min-h-screen bg-slate-50">
             {toast && (
-                <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-bold flex items-center gap-2 animate-fade-in
-                    ${toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
-                    <span className="material-symbols-outlined text-[18px]">{toast.type === 'success' ? 'check_circle' : 'cancel'}</span>
+                <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-bold flex items-center gap-2 animate-fade-in ${toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'}`}>
+                    <span className="material-symbols-outlined text-[18px]">{toast.type === 'error' ? 'cancel' : 'check_circle'}</span>
                     {toast.msg}
                 </div>
             )}
@@ -144,40 +112,36 @@ export default function PharmacistDashboardPage() {
             {reviewTarget && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col animate-fade-in max-h-[90vh]">
-                        <div className="flex items-center gap-3 px-6 py-4 bg-emerald-50 border-b border-emerald-100 rounded-t-2xl">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-emerald-600">health_and_safety</span>
+                        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-primary">medication</span>
                             </div>
                             <div>
-                                <p className="font-black text-emerald-900">Review & Dispense</p>
-                                <p className="text-xs text-emerald-700">Verify prescription before authorizing</p>
+                                <p className="font-black text-slate-900">Dispense Verification</p>
+                                <p className="text-xs text-slate-400">{reviewTarget.id} · {reviewTarget.patient || reviewTarget.name}</p>
                             </div>
                             <button onClick={() => setReviewTarget(null)} className="ml-auto text-slate-400 hover:text-slate-600 p-1">
                                 <span className="material-symbols-outlined">close</span>
                             </button>
                         </div>
-                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Patient</p>
-                                    <p className="font-black text-slate-900">{reviewTarget.patient}</p>
+                                    <p className="font-black text-slate-900">{reviewTarget.patient || reviewTarget.name}</p>
                                 </div>
                                 <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Prescriber</p>
-                                    <p className="font-black text-slate-900">{reviewTarget.doctor}</p>
+                                    <p className="font-black text-slate-900">{reviewTarget.doctor || 'Clinic Attending'}</p>
                                 </div>
                             </div>
                             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
                                 <div className="flex items-center gap-2 mb-3">
                                     <span className="material-symbols-outlined text-primary text-[22px]">medication</span>
-                                    <h3 className="font-black text-primary text-lg">{reviewTarget.drug}</h3>
-                                    <span className={`ml-auto text-[11px] font-bold border px-2.5 py-1 rounded-full ${URGENCY_CFG[reviewTarget.urgency]?.pill}`}>{reviewTarget.urgency}</span>
+                                    <h3 className="font-black text-primary text-lg">{reviewTarget.drug || reviewTarget.medication}</h3>
+                                    <span className="ml-auto text-[11px] font-bold border px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border-rose-200">Urgent</span>
                                 </div>
-                                <p className="text-sm text-slate-600">Quantity: <span className="font-bold text-slate-900">{reviewTarget.qty}</span></p>
-                                <div className="mt-3 pt-3 border-t border-slate-200">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Sig / Instructions</p>
-                                    <p className="text-sm text-slate-700 italic">{reviewTarget.instructions || 'Take as directed.'}</p>
-                                </div>
+                                <p className="text-sm text-slate-600">Dosage: <span className="font-bold text-slate-900">{reviewTarget.dosage || 'Standard'}</span></p>
                             </div>
                             <div className="space-y-2">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase">Automated Safety Checks</p>
@@ -209,7 +173,7 @@ export default function PharmacistDashboardPage() {
                             </div>
                             <div>
                                 <p className="font-black text-rose-900">Reject Prescription</p>
-                                <p className="text-xs text-rose-600">{rejectTarget.id} · {rejectTarget.patient}</p>
+                                <p className="text-xs text-rose-600">{rejectTarget.id} · {rejectTarget.patient || rejectTarget.name}</p>
                             </div>
                             <button onClick={() => { setRejectTarget(null); setRejectReason(''); }} className="ml-auto text-slate-400 hover:text-slate-600 p-1">
                                 <span className="material-symbols-outlined">close</span>
@@ -241,9 +205,11 @@ export default function PharmacistDashboardPage() {
                 <div className="bg-gradient-to-r from-primary to-blue-600 rounded-2xl p-6 text-white shadow-lg">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-white/70 text-sm">Thursday, 5 March 2026</p>
-                            <h2 className="text-2xl font-black mt-1">Good morning, Pharmacist 👋</h2>
-                            <p className="text-white/80 text-sm mt-1">You have <span className="font-black text-white">{livePendingCount} pending dispenses</span> and <span className="font-black text-white">{liveConflictsCount} active conflict{liveConflictsCount !== 1 ? 's' : ''}</span> today.</p>
+                            <p className="text-white/70 text-sm">{today}</p>
+                            <h2 className="text-2xl font-black mt-1">Pharmacy Operations 💊</h2>
+                            <p className="text-white/80 text-sm mt-1">
+                                You have <span className="font-black text-white">{livePendingCount} pending dispense{livePendingCount !== 1 ? 's' : ''}</span> and <span className="font-black text-white">{liveConflictsCount} active alert{liveConflictsCount !== 1 ? 's' : ''}</span> in the database.
+                            </p>
                         </div>
                         <div className="hidden sm:flex w-16 h-16 rounded-2xl bg-white/15 items-center justify-center">
                             <span className="material-symbols-outlined text-[36px] text-white/80">local_pharmacy</span>
@@ -254,10 +220,10 @@ export default function PharmacistDashboardPage() {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
-                        { label: 'Verified Today', value: verifiedToday, icon: 'verified', from: 'from-emerald-500', to: 'to-teal-600', sub: 'dispensing actions', link: '/pharmacist/logs' },
-                        { label: 'Pending Queue', value: livePendingCount, icon: 'pending_actions', from: 'from-amber-500', to: 'to-orange-500', sub: `${liveUrgentCount} urgent`, link: '/pharmacist/pending' },
-                        { label: 'Drug Conflicts', value: liveConflictsCount, icon: 'warning', from: 'from-rose-500', to: 'to-red-600', sub: 'unresolved alerts', link: '/pharmacist/conflicts' },
-                        { label: 'Needs Review', value: reviewCount, icon: 'rate_review', from: 'from-violet-500', to: 'to-purple-600', sub: 'manual checks', link: '/pharmacist/records' },
+                        { label: 'Logged / Verified', value: verifiedToday, icon: 'verified', from: 'from-emerald-500', to: 'to-teal-600', sub: 'live patient logs', link: '/pharmacist/logs' },
+                        { label: 'Pending Queue', value: livePendingCount, icon: 'pending_actions', from: 'from-amber-500', to: 'to-orange-500', sub: 'awaiting dispense', link: '/pharmacist/pending' },
+                        { label: 'Clinical Alerts', value: liveConflictsCount, icon: 'warning', from: 'from-rose-500', to: 'to-red-600', sub: 'active escalations', link: '/pharmacist/conflicts' },
+                        { label: 'Total Refills', value: rawRefills ? rawRefills.length : 0, icon: 'receipt_long', from: 'from-violet-500', to: 'to-purple-600', sub: 'all records', link: '/pharmacist/records' },
                     ].map(k => (
                         <Link key={k.label} to={k.link} className="block bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer">
                             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.from} ${k.to} flex items-center justify-center mb-3 shadow-sm`}>
@@ -278,38 +244,37 @@ export default function PharmacistDashboardPage() {
                         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                             <div>
                                 <h3 className="font-black text-slate-900">Pending Dispenses</h3>
-                                <p className="text-xs text-slate-400">{pending.length} prescription{pending.length !== 1 ? 's' : ''} awaiting review</p>
+                                <p className="text-xs text-slate-400">{pendingRefills.length} prescription{pendingRefills.length !== 1 ? 's' : ''} in queue</p>
                             </div>
                             <Link to="/pharmacist/pending" className="text-xs font-bold text-primary hover:underline flex items-center gap-0.5">
                                 View All <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                             </Link>
                         </div>
                         <div className="divide-y divide-slate-100">
-                            {pending.length === 0 ? (
+                            {pendingRefills.length === 0 ? (
                                 <div className="py-12 text-center">
-                                    <span className="material-symbols-outlined text-3xl text-slate-300 block mb-2">check_circle</span>
-                                    <p className="text-sm text-slate-400 font-semibold">All caught up!</p>
+                                    <span className="material-symbols-outlined text-3xl text-emerald-400 block mb-2">check_circle</span>
+                                    <p className="text-sm text-slate-700 font-bold">All Dispenses Complete</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">No pending prescriptions in the dispensary queue.</p>
                                 </div>
-                            ) : pending.slice(0, 4).map(rx => {
-                                const cfg = URGENCY_CFG[rx.urgency] ?? URGENCY_CFG.normal;
+                            ) : pendingRefills.slice(0, 4).map(rx => {
                                 const isDisp = dispensed.has(rx.id);
                                 return (
-                                    <div key={rx.id} className={`flex items-center justify-between px-5 py-4 border-l-4 ${cfg.border} transition-all ${isDisp ? 'opacity-50 bg-emerald-50' : 'hover:bg-slate-50'}`}>
+                                    <div key={rx.id} className={`flex items-center justify-between px-5 py-4 border-l-4 border-l-amber-400 transition-all ${isDisp ? 'opacity-50 bg-emerald-50' : 'hover:bg-slate-50'}`}>
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-white flex-shrink-0 bg-gradient-to-br ${cfg.from} ${cfg.to}`}>
-                                                {rx.initials}
+                                            <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-white flex-shrink-0 bg-gradient-to-br from-amber-500 to-orange-600">
+                                                {(rx.name || 'P')[0]}
                                             </div>
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    <p className="font-black text-slate-900 text-sm">{rx.patient}</p>
-                                                    <span className="text-[10px] font-mono text-slate-400">{rx.id}</span>
+                                                    <p className="font-black text-slate-900 text-sm">{rx.name}</p>
+                                                    <span className="text-[10px] font-mono text-slate-400">Refill #{rx.id.slice(0, 6)}</span>
                                                 </div>
-                                                <p className="text-sm font-semibold text-primary">{rx.drug}</p>
-                                                <p className="text-xs text-slate-400">Qty {rx.qty} · {rx.doctor}</p>
+                                                <p className="text-sm font-semibold text-primary">{rx.medication} {rx.dosage}</p>
+                                                <p className="text-xs text-slate-400">{rx.doctor || 'Clinic Doctor'}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                                            <span className={`text-[10px] font-bold border px-2 py-0.5 rounded-full ${cfg.pill}`}>{rx.urgency}</span>
                                             <button onClick={() => setReviewTarget(rx)} disabled={isDisp}
                                                 className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                                                 {isDisp ? '✓' : 'Review'}
@@ -348,11 +313,15 @@ export default function PharmacistDashboardPage() {
                         {/* Recent Activity */}
                         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                             <div className="px-5 py-4 border-b border-slate-100">
-                                <h3 className="font-black text-slate-900">Today&apos;s Activity</h3>
+                                <h3 className="font-black text-slate-900">Today&apos;s Live Activity</h3>
                             </div>
-                            <div className="divide-y divide-slate-50">
-                                {activity.map(a => {
-                                    const cfg = ACT_CFG[a.status];
+                            <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+                                {liveActivity.length === 0 ? (
+                                    <div className="py-8 text-center text-slate-400 text-xs">
+                                        No recent dispensing logs recorded yet today.
+                                    </div>
+                                ) : liveActivity.map(a => {
+                                    const cfg = ACT_CFG[a.status] || ACT_CFG.info;
                                     return (
                                         <div key={a.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
                                             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />

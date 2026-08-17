@@ -27,6 +27,7 @@ import CaregiverSettingsPage from './pages/caregiver/CaregiverSettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import ForcePasswordResetPage from './pages/ForcePasswordResetPage';
+import PatientOnboardingPage from './pages/patient/PatientOnboardingPage';
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, user } = useAuth();
@@ -60,6 +61,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ForcePasswordResetPage />
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/patient/onboarding" 
+        element={
+          <ProtectedRoute allowedRoles={['patient']}>
+            <PatientOnboardingPage />
           </ProtectedRoute>
         } 
       />

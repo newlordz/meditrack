@@ -2,13 +2,30 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { getPatient, updatePatient } from '../../api/api';
-import { PATIENT_PROFILE as INITIAL_PROFILE } from '../../data/mockData';
 import MFASettingsCard from '../../components/MFASettingsCard';
 
-const EMERGENCY_CONTACTS = [
-    { name: 'Kwame Johanson', relation: 'Spouse', phone: '+233 24 555 9876', icon: 'person' },
-    { name: 'Abena Mensah', relation: 'Mother', phone: '+233 20 333 5432', icon: 'elderly_woman' },
-];
+const EMPTY_PROFILE = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    avatar: 'U',
+    dob: '',
+    gender: 'Not specified',
+    bloodType: 'Unknown',
+    weight: '—',
+    height: '—',
+    phone: '',
+    address: '',
+    emergencyContactName: '',
+    emergencyContactRelation: '',
+    emergencyContactPhone: '',
+    secondaryContactName: '',
+    secondaryContactRelation: '',
+    secondaryContactPhone: '',
+    allergies: [],
+    conditions: [],
+};
+
 
 const TOGGLE_PREFS = [
     { key: 'doseReminders', label: 'Dose Reminders', desc: 'Get notified 15 min before each scheduled dose' },
@@ -103,9 +120,9 @@ export default function PatientProfilePage() {
         
         return Array.from(docMap.values());
     };
-    const [profile, setProfile] = useState(INITIAL_PROFILE);
+    const [profile, setProfile] = useState(EMPTY_PROFILE);
     const [editing, setEditing] = useState(false);
-    const [draft, setDraft] = useState(INITIAL_PROFILE);
+    const [draft, setDraft] = useState(EMPTY_PROFILE);
     const [prefs, setPrefs] = useState({ doseReminders: true, missedAlerts: true, weeklyReport: false, doctorUpdates: true, streakNotifs: true });
     const [showAddAllergy, setShowAddAllergy] = useState(false);
     const [newAllergy, setNewAllergy] = useState('');
@@ -118,14 +135,20 @@ export default function PatientProfilePage() {
                 firstName: realPatient.user.firstName,
                 lastName: realPatient.user.lastName,
                 email: realPatient.user.email,
-                avatar: realPatient.user.firstName[0].toUpperCase(),
+                avatar: (realPatient.user.firstName[0] || 'U').toUpperCase(),
                 dob: realPatient.dob ? new Date(realPatient.dob).toISOString().split('T')[0] : '1970-01-01',
-                gender: INITIAL_PROFILE.gender,
+                gender: realPatient.gender || 'Not specified',
                 bloodType: realPatient.bloodType || 'Unknown',
                 weight: realPatient.weight || 'Unknown',
                 height: realPatient.height || 'Unknown',
-                phone: INITIAL_PROFILE.phone,
-                address: INITIAL_PROFILE.address,
+                phone: realPatient.phone || '',
+                address: realPatient.address || '',
+                emergencyContactName: realPatient.emergencyContactName || '',
+                emergencyContactRelation: realPatient.emergencyContactRelation || 'Spouse',
+                emergencyContactPhone: realPatient.emergencyContactPhone || '',
+                secondaryContactName: realPatient.secondaryContactName || '',
+                secondaryContactRelation: realPatient.secondaryContactRelation || 'Parent',
+                secondaryContactPhone: realPatient.secondaryContactPhone || '',
                 allergies: realPatient.allergies || [],
                 conditions: realPatient.conditions || [],
             };
@@ -143,9 +166,18 @@ export default function PatientProfilePage() {
                 lastName: draft.lastName,
                 email: draft.email,
                 dob: draft.dob,
+                gender: draft.gender,
                 bloodType: draft.bloodType,
                 weight: draft.weight,
-                height: draft.height
+                height: draft.height,
+                phone: draft.phone,
+                address: draft.address,
+                emergencyContactName: draft.emergencyContactName,
+                emergencyContactRelation: draft.emergencyContactRelation,
+                emergencyContactPhone: draft.emergencyContactPhone,
+                secondaryContactName: draft.secondaryContactName,
+                secondaryContactRelation: draft.secondaryContactRelation,
+                secondaryContactPhone: draft.secondaryContactPhone,
             });
             setProfile(draft);
             setEditing(false);
@@ -205,7 +237,7 @@ export default function PatientProfilePage() {
                             Portals › Patient › <span className="text-primary font-semibold">Profile</span>
                         </p>
                         <h2 className="text-2xl font-black text-slate-900">My Profile</h2>
-                        <p className="text-sm text-slate-500 mt-0.5">Manage your personal info, medical details, and preferences.</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Manage your personal info, emergency contacts, medical details, and preferences.</p>
                     </div>
                     {!editing ? (
                         <button onClick={() => { setDraft(profile); setEditing(true); }}
@@ -232,7 +264,7 @@ export default function PatientProfilePage() {
                         <p className="text-white/80 text-sm mt-0.5">{profile.email}</p>
                         <div className="flex flex-wrap justify-center sm:justify-start gap-3 mt-3">
                             {[
-                                { label: 'Age', value: `${age} yrs` },
+                                { label: 'Age', value: `${isNaN(age) ? '—' : age} yrs` },
                                 { label: 'Blood Type', value: profile.bloodType },
                                 { label: 'Weight', value: profile.weight },
                                 { label: 'Height', value: profile.height },
@@ -275,6 +307,105 @@ export default function PatientProfilePage() {
                             <div className="mt-5">
                                 <ProfileField label="Home Address" field="address" profile={profile} draft={draft} editing={editing} setDraft={setDraft} />
                             </div>
+                        </SectionCard>
+
+                        {/* Emergency Contacts */}
+                        <SectionCard
+                            title="Emergency Contacts"
+                            icon="contact_phone"
+                            action={editing && <span className="text-xs text-primary font-semibold">Editing…</span>}
+                        >
+                            {editing ? (
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-slate-50 rounded-xl space-y-3">
+                                        <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Primary Emergency Contact</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Full Name"
+                                                value={draft.emergencyContactName ?? ''}
+                                                onChange={e => setDraft(d => ({ ...d, emergencyContactName: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Relationship (e.g. Spouse)"
+                                                value={draft.emergencyContactRelation ?? ''}
+                                                onChange={e => setDraft(d => ({ ...d, emergencyContactRelation: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                                            />
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            placeholder="Phone Number"
+                                            value={draft.emergencyContactPhone ?? ''}
+                                            onChange={e => setDraft(d => ({ ...d, emergencyContactPhone: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                                        />
+                                    </div>
+
+                                    <div className="p-4 bg-slate-50 rounded-xl space-y-3">
+                                        <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Secondary Emergency Contact (Optional)</p>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Full Name"
+                                                value={draft.secondaryContactName ?? ''}
+                                                onChange={e => setDraft(d => ({ ...d, secondaryContactName: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Relationship (e.g. Parent)"
+                                                value={draft.secondaryContactRelation ?? ''}
+                                                onChange={e => setDraft(d => ({ ...d, secondaryContactRelation: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                                            />
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            placeholder="Phone Number"
+                                            value={draft.secondaryContactPhone ?? ''}
+                                            onChange={e => setDraft(d => ({ ...d, secondaryContactPhone: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {profile.emergencyContactName ? (
+                                        <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                                                <span className="material-symbols-outlined text-[20px]">person</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-slate-900 text-sm truncate">{profile.emergencyContactName}</p>
+                                                    <span className="text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full">Primary</span>
+                                                </div>
+                                                <p className="text-xs text-slate-500">{profile.emergencyContactRelation || 'Contact'} · {profile.emergencyContactPhone || 'No phone'}</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-slate-400 italic">No primary emergency contact on record. Click "Edit Profile" to add.</p>
+                                    )}
+
+                                    {profile.secondaryContactName && (
+                                        <div className="flex items-center gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                                                <span className="material-symbols-outlined text-[20px]">person</span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-bold text-slate-900 text-sm truncate">{profile.secondaryContactName}</p>
+                                                    <span className="text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">Secondary</span>
+                                                </div>
+                                                <p className="text-xs text-slate-500">{profile.secondaryContactRelation || 'Contact'} · {profile.secondaryContactPhone || 'No phone'}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </SectionCard>
 
                         {/* MFA Settings */}
@@ -375,23 +506,6 @@ export default function PatientProfilePage() {
                                             {doc.prescribes.map(med => (
                                                 <span key={med} className="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{med}</span>
                                             ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </SectionCard>
-
-                        {/* Emergency Contacts */}
-                        <SectionCard title="Emergency Contacts" icon="emergency">
-                            <div className="space-y-3">
-                                {EMERGENCY_CONTACTS.map(c => (
-                                    <div key={c.name} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                            <span className="material-symbols-outlined text-primary text-[18px]">{c.icon}</span>
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-slate-900 text-sm">{c.name}</p>
-                                            <p className="text-xs text-slate-500">{c.relation} · {c.phone}</p>
                                         </div>
                                     </div>
                                 ))}

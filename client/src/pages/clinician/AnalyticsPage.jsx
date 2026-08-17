@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { SHARED_PATIENTS } from '../../data/mockData';
+import { useState } from 'react';
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getPatients, getEscalations } from '../../api/api';
 
 const TIMEFRAMES = ['Last 7 Days', 'Last 30 Days', 'Year to Date'];
 
@@ -17,59 +19,66 @@ const MONTHLY_DATA = {
     ],
 };
 
-const CONDITION_DIST = [
-    { label: 'Type 2 Diabetes', count: 3, color: 'bg-blue-500' },
-    { label: 'Hypertension', count: 3, color: 'bg-violet-500' },
-    { label: 'Atrial Fibrillation', count: 1, color: 'bg-rose-500' },
-    { label: 'Anxiety / Thyroid', count: 1, color: 'bg-amber-500' },
-    { label: 'Post-OP / GERD', count: 1, color: 'bg-emerald-500' },
-];
-
 function MiniBar({ value, max = 100, color = 'bg-primary' }) {
     return (
         <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full ${color}`} style={{ width: `${(value / max) * 100}%` }} />
+            <div className={`h-full rounded-full ${color}`} style={{ width: `${max > 0 ? (value / max) * 100 : 0}%` }} />
         </div>
     );
 }
 
 export default function AnalyticsPage() {
+    const { user } = useAuth();
     const [timeframe, setTimeframe] = useState('Last 30 Days');
     const [showTF, setShowTF] = useState(false);
-    const [escalations, setEscalations] = useState([]);
 
-    useEffect(() => {
-        const load = () => {
-            const saved = localStorage.getItem('meditrack_escalations_v3') || localStorage.getItem('meditrack_escalations_v2');
-            if (saved) setEscalations(JSON.parse(saved));
-        };
-        load();
-        window.addEventListener('localStorageUpdated', load);
-        return () => window.removeEventListener('localStorageUpdated', load);
-    }, []);
+    const { data: rawPatients } = useApi(() => getPatients(user?.userId || user?.id), [user?.userId, user?.id]);
+    const { data: rawEscalations } = useApi(() => getEscalations(user?.userId || user?.id), [user?.userId, user?.id]);
 
-    const patients = SHARED_PATIENTS;
+    const patients = (rawPatients || []).map(p => ({
+        ...p,
+        adherence: p.adherence || 85,
+    }));
+
     const totalPatients = patients.length;
-    const highRisk = patients.filter(p => p.adherence < 50);
-    const modRisk = patients.filter(p => p.adherence >= 50 && p.adherence < 80);
-    const lowRisk = patients.filter(p => p.adherence >= 80);
-    const avgAdherence = Math.round(patients.reduce((s, p) => s + p.adherence, 0) / patients.length);
-    const resolvedEsc = escalations.filter(e => e.status === 'dismissed').length;
-    const activeEsc = escalations.filter(e => e.status !== 'dismissed').length;
+    const highRisk = patients.filter(p => p.adherence < 50 || p.activeEscalations > 0);
+    const modRisk = patients.filter(p => p.adherence >= 50 && p.adherence < 80 && p.activeEscalations === 0);
+    const lowRisk = patients.filter(p => p.adherence >= 80 && p.activeEscalations === 0);
+    const avgAdherence = totalPatients > 0 ? Math.round(patients.reduce((s, p) => s + p.adherence, 0) / totalPatients) : 0;
+    
+    const escalations = rawEscalations || [];
+    const resolvedEsc = escalations.filter(e => e.status === 'RESOLVED' || e.status === 'dismissed').length;
+    const activeEsc = escalations.filter(e => e.status === 'ACTIVE').length;
 
     const chartData = MONTHLY_DATA[timeframe];
     const maxVal = Math.max(...chartData.map(d => d.val));
 
-    const lowPct = Math.round((lowRisk.length / totalPatients) * 100);
-    const modPct = Math.round((modRisk.length / totalPatients) * 100);
-    const highPct = 100 - lowPct - modPct;
+    const lowPct = totalPatients > 0 ? Math.round((lowRisk.length / totalPatients) * 100) : 0;
+    const modPct = totalPatients > 0 ? Math.round((modRisk.length / totalPatients) * 100) : 0;
+    const highPct = totalPatients > 0 ? Math.max(0, 100 - lowPct - modPct) : 0;
     const p2 = lowPct + modPct;
-    const conicGradient = `conic-gradient(#10b981 0% ${lowPct}%, #f59e0b ${lowPct}% ${p2}%, #ef4444 ${p2}% 100%)`;
+    const conicGradient = totalPatients > 0
+        ? `conic-gradient(#10b981 0% ${lowPct}%, #f59e0b ${lowPct}% ${p2}%, #ef4444 ${p2}% 100%)`
+        : 'conic-gradient(#cbd5e1 0% 100%)';
+
+    // Derive conditions from live patients
+    const conditionMap = {};
+    patients.forEach(p => {
+        (p.conditions || []).forEach(c => {
+            conditionMap[c] = (conditionMap[c] || 0) + 1;
+        });
+    });
+    const conditionColors = ['bg-blue-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-indigo-500'];
+    const conditionDist = Object.entries(conditionMap).map(([label, count], i) => ({
+        label,
+        count,
+        color: conditionColors[i % conditionColors.length],
+    }));
 
     const kpis = [
-        { label: 'Avg Adherence', value: `${avgAdherence}%`, trend: '+2.1%', up: true, icon: 'trending_up', from: 'from-emerald-500', to: 'to-teal-600', sub: 'across all patients' },
-        { label: 'Total Patients', value: totalPatients, trend: '+3', up: true, icon: 'groups', from: 'from-blue-500', to: 'to-indigo-600', sub: 'active panel' },
-        { label: 'Active Escalations', value: activeEsc, trend: null, up: false, icon: 'warning', from: 'from-rose-500', to: 'to-red-600', sub: 'need attention' },
+        { label: 'Avg Adherence', value: `${avgAdherence}%`, trend: '+2.1%', up: true, icon: 'trending_up', from: 'from-emerald-500', to: 'to-teal-600', sub: 'live patient panel' },
+        { label: 'Total Patients', value: totalPatients, trend: 'Live', up: true, icon: 'groups', from: 'from-blue-500', to: 'to-indigo-600', sub: 'assigned patients' },
+        { label: 'Active Escalations', value: activeEsc, trend: null, up: false, icon: 'warning', from: 'from-rose-500', to: 'to-red-600', sub: 'require action' },
         { label: 'Interventions', value: resolvedEsc, trend: null, up: true, icon: 'check_circle', from: 'from-violet-500', to: 'to-purple-600', sub: 'resolved alerts' },
     ];
 
@@ -207,13 +216,15 @@ export default function AnalyticsPage() {
                     {/* Condition Breakdown */}
                     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                         <h3 className="font-black text-slate-900 mb-1">Condition Breakdown</h3>
-                        <p className="text-xs text-slate-400 mb-5">Most prevalent diagnoses in the panel</p>
+                        <p className="text-xs text-slate-400 mb-5">Prevalent diagnoses across live patient records</p>
                         <div className="space-y-4">
-                            {CONDITION_DIST.map(c => (
+                            {conditionDist.length === 0 ? (
+                                <p className="text-xs text-slate-400 italic py-4">No diagnosed conditions recorded on live patient profiles yet.</p>
+                            ) : conditionDist.map(c => (
                                 <div key={c.label}>
                                     <div className="flex justify-between text-sm mb-1.5">
                                         <span className="text-slate-700 font-medium text-xs">{c.label}</span>
-                                        <span className="font-bold text-slate-900 text-xs">{c.count} patients</span>
+                                        <span className="font-bold text-slate-900 text-xs">{c.count} patient{c.count !== 1 ? 's' : ''}</span>
                                     </div>
                                     <MiniBar value={c.count} max={totalPatients} color={c.color} />
                                 </div>

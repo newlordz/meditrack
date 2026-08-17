@@ -41,8 +41,13 @@ export default function ForcePasswordResetPage() {
             // Success! Update local context to clear the flag
             updateUser({ mustChangePassword: false });
             
-            // Redirect to their dashboard
-            navigate(getDefaultRoute(), { replace: true });
+            // If patient has not completed their emergency contacts & vitals profile, route to onboarding
+            if (user?.role === 'patient' && !user?.profileCompleted) {
+                navigate('/patient/onboarding', { replace: true });
+            } else {
+                // Redirect to their dashboard
+                navigate(getDefaultRoute(), { replace: true });
+            }
         } catch (err) {
             setError(err.message || 'Failed to change password. Please check your current password.');
         } finally {

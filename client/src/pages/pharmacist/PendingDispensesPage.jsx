@@ -1,11 +1,6 @@
-import { useState, useEffect } from 'react';
-
-const INIT_PENDING = [
-    { id: 'RX-0041', patient: 'Nana Ama Boateng', drug: 'Atenolol 25mg', qty: 30, doctor: 'Dr. Mensah', urgency: 'urgent', instructions: 'Take 1 tablet daily in the morning' },
-    { id: 'RX-0039', patient: 'Kwesi Ofori', drug: 'Glibenclamide 5mg', qty: 60, doctor: 'Dr. Acheampong', urgency: 'normal', instructions: 'Take 1 tablet twice daily with meals' },
-    { id: 'RX-0038', patient: 'Akua Sarpong', drug: 'Clopidogrel 75mg', qty: 28, doctor: 'Dr. Mensah', urgency: 'urgent', instructions: 'Take 1 tablet once daily' },
-    { id: 'RX-0036', patient: 'Yaw Darko', drug: 'Warfarin 5mg', qty: 14, doctor: 'Dr. Frimpong', urgency: 'review', instructions: 'Take as directed, monitor INR weekly' },
-];
+import { useState } from 'react';
+import { useApi } from '../../hooks/useApi';
+import { getRefillRequests, updateRefillStatus } from '../../api/api';
 
 const URGENCY_CFG = {
     urgent: { pill: 'bg-rose-100 text-rose-700 border-rose-200', row: 'border-l-4 border-l-rose-400' },
@@ -23,12 +18,7 @@ const REJECT_REASONS = [
 ];
 
 export default function PendingDispensesPage() {
-    const [pending, setPending] = useState(() => {
-        const saved = localStorage.getItem('meditrack_pending_prescriptions');
-        if (saved) return JSON.parse(saved);
-        return INIT_PENDING;
-    });
-
+    const { data: rawRefills, refetch } = useApi(getRefillRequests);
     const [dispensed, setDispensed] = useState(new Set());
     const [reviewTarget, setReviewTarget] = useState(null);
     const [rejectTarget, setRejectTarget] = useState(null);
@@ -36,59 +26,44 @@ export default function PendingDispensesPage() {
     const [search, setSearch] = useState('');
     const [urgencyFilter, setUrgencyFilter] = useState('all');
 
-    useEffect(() => {
-        const handleUpdate = () => {
-            const saved = localStorage.getItem('meditrack_pending_prescriptions');
-            if (saved) setPending(JSON.parse(saved));
-        };
-        window.addEventListener('rxDispensedOrPrescribed', handleUpdate);
-        return () => window.removeEventListener('rxDispensedOrPrescribed', handleUpdate);
-    }, []);
+    const pending = (rawRefills || []).filter(r => r.pharmacyStatus === 'PENDING').map(r => ({
+        id: r.id,
+        patient: r.name,
+        drug: r.medication,
+        dosage: r.dosage,
+        qty: 30,
+        doctor: r.doctor || 'Clinic Doctor',
+        urgency: 'urgent',
+        instructions: 'Take as directed by doctor',
+        requestDate: new Date(r.requestDate).toLocaleDateString([], { month: 'short', day: 'numeric' })
+    }));
 
-    const handleDispense = () => {
+    const handleDispense = async () => {
         if (!reviewTarget) return;
         const rx = reviewTarget;
         setDispensed(prev => new Set([...prev, rx.id]));
         setReviewTarget(null);
 
+        try {
+            await updateRefillStatus(rx.id, 'DISPENSED');
+            refetch();
+        } catch(err) {
+            console.error(err);
+        }
+
         setTimeout(() => {
-            setPending(q => {
-                const updated = q.filter(r => r.id !== rx.id);
-                localStorage.setItem('meditrack_pending_prescriptions', JSON.stringify(updated));
-                return updated;
-            });
-
-            const newDose = {
-                id: `DOSE-${Date.now()}`,
-                name: rx.drug,
-                dosage: `Qty: ${rx.qty}`,
-                instruction: rx.instructions || 'Take as directed by Pharmacist',
-                time: '8:00 AM',
-                status: 'upcoming',
-                icon: 'medication',
-                isCurrent: false,
-            };
-
-            const existingDoses = JSON.parse(localStorage.getItem('meditrack_patient_doses') || '[]');
-            if (!existingDoses.some(d => d.status === 'next' || d.status === 'missed')) {
-                newDose.status = 'next';
-                newDose.isCurrent = true;
-            }
-
-            localStorage.setItem('meditrack_patient_doses', JSON.stringify([...existingDoses, newDose]));
-            window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
             setDispensed(prev => { const s = new Set(prev); s.delete(rx.id); return s; });
         }, 800);
     };
 
-    const confirmReject = () => {
+    const confirmReject = async () => {
         if (!rejectReason || !rejectTarget) return;
-        setPending(q => {
-            const updated = q.filter(r => r.id !== rejectTarget.id);
-            localStorage.setItem('meditrack_pending_prescriptions', JSON.stringify(updated));
-            return updated;
-        });
-        window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
+        try {
+            await updateRefillStatus(rejectTarget.id, 'CANCELLED');
+            refetch();
+        } catch(err) {
+            console.error(err);
+        }
         setRejectTarget(null);
         setRejectReason('');
     };

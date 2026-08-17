@@ -30,4 +30,27 @@ router.get('/', async (req, res) => {
     }
 });
 
+// POST /api/logs - Create medication log
+router.post('/', async (req, res) => {
+    try {
+        const { patientId, scheduleId, action } = req.body;
+        if (!patientId || !action) {
+            return res.status(400).json({ error: 'patientId and action are required' });
+        }
+
+        const log = await prisma.medicationLog.create({
+            data: {
+                patientId,
+                scheduleId: scheduleId || undefined,
+                action: action.toUpperCase()
+            }
+        });
+
+        res.status(201).json(log);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to record log' });
+    }
+});
+
 export default router;

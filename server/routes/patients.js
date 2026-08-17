@@ -104,7 +104,12 @@ router.delete('/:id', async (req, res) => {
 router.patch('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { doctorId, dob, bloodType, weight, height, conditions, allergies, firstName, lastName, email } = req.body;
+        const {
+            doctorId, dob, bloodType, weight, height, gender, phone, address,
+            emergencyContactName, emergencyContactRelation, emergencyContactPhone,
+            secondaryContactName, secondaryContactRelation, secondaryContactPhone,
+            profileCompleted, conditions, allergies, firstName, lastName, email
+        } = req.body;
 
         const patient = await prisma.patient.findUnique({ where: { id } });
         if (!patient) return res.status(404).json({ error: 'Patient not found' });
@@ -116,11 +121,21 @@ router.patch('/:id', async (req, res) => {
                 data: {
                     doctorId: doctorId !== undefined ? doctorId : undefined,
                     dob: dob ? new Date(dob) : undefined,
-                    bloodType,
-                    weight,
-                    height,
-                    conditions,
-                    allergies
+                    bloodType: bloodType !== undefined ? bloodType : undefined,
+                    weight: weight !== undefined ? weight : undefined,
+                    height: height !== undefined ? height : undefined,
+                    gender: gender !== undefined ? gender : undefined,
+                    phone: phone !== undefined ? phone : undefined,
+                    address: address !== undefined ? address : undefined,
+                    emergencyContactName: emergencyContactName !== undefined ? emergencyContactName : undefined,
+                    emergencyContactRelation: emergencyContactRelation !== undefined ? emergencyContactRelation : undefined,
+                    emergencyContactPhone: emergencyContactPhone !== undefined ? emergencyContactPhone : undefined,
+                    secondaryContactName: secondaryContactName !== undefined ? secondaryContactName : undefined,
+                    secondaryContactRelation: secondaryContactRelation !== undefined ? secondaryContactRelation : undefined,
+                    secondaryContactPhone: secondaryContactPhone !== undefined ? secondaryContactPhone : undefined,
+                    profileCompleted: profileCompleted !== undefined ? Boolean(profileCompleted) : undefined,
+                    conditions: conditions !== undefined ? conditions : undefined,
+                    allergies: allergies !== undefined ? allergies : undefined,
                 }
             }),
             // Update associated user if user info is passed
@@ -128,9 +143,9 @@ router.patch('/:id', async (req, res) => {
                 prisma.user.update({
                     where: { id: patient.userId },
                     data: {
-                        firstName,
-                        lastName,
-                        email
+                        firstName: firstName !== undefined ? firstName : undefined,
+                        lastName: lastName !== undefined ? lastName : undefined,
+                        email: email !== undefined ? email : undefined
                     }
                 })
             ] : [])

@@ -51,6 +51,16 @@ model Patient {
   bloodType   String
   weight      String
   height      String
+  gender      String?
+  phone       String?
+  address     String?
+  emergencyContactName     String?
+  emergencyContactRelation String?
+  emergencyContactPhone    String?
+  secondaryContactName     String?
+  secondaryContactRelation String?
+  secondaryContactPhone    String?
+  profileCompleted         Boolean  @default(false)
   conditions  String[]
   allergies   String[]
   

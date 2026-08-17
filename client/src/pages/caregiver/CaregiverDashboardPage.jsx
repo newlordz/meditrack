@@ -1,20 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-
-const PATIENTS = [
-    { id: 1, name: 'Margaret Johnson', initials: 'MJ', condition: 'Type 2 Diabetes', adherence: 88, nextDose: '2:00 PM', nextDrug: 'Metformin 500mg', status: 'on-track', refill: 'Refill in 5 days' },
-    { id: 2, name: 'George Johnson', initials: 'GJ', condition: 'Hypertension', adherence: 42, nextDose: '12:00 PM', nextDrug: 'Amlodipine 5mg', status: 'missed', refill: 'Refill due TODAY' },
-    { id: 3, name: 'Linda Owusu', initials: 'LO', condition: 'Hyperlipidemia', adherence: 95, nextDose: '6:00 PM', nextDrug: 'Atorvastatin 20mg', status: 'on-track', refill: 'Refill in 14 days' },
-];
-
-const ACTIVITY = [
-    { time: '10:32 AM', patient: 'Margaret Johnson', event: 'Took Metformin 500mg', type: 'done' },
-    { time: '9:15 AM', patient: 'George Johnson', event: 'Missed morning Amlodipine 5mg', type: 'warn' },
-    { time: '8:58 AM', patient: 'Linda Owusu', event: 'Took Atorvastatin 20mg', type: 'done' },
-    { time: '8:00 AM', patient: 'Margaret Johnson', event: 'Took Glipizide 5mg', type: 'done' },
-    { time: 'Yesterday', patient: 'George Johnson', event: 'Missed evening Amlodipine 5mg', type: 'warn' },
-    { time: 'Yesterday', patient: 'Linda Owusu', event: 'Refill reminder sent', type: 'info' },
-];
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getPatients, getMedicationLogs } from '../../api/api';
 
 const STATUS_CFG = {
     done: { dot: 'bg-emerald-500', label: 'Taken' },
@@ -34,17 +22,38 @@ const QUICK_ACTIONS = [
 ];
 
 export default function CaregiverDashboardPage() {
+    const { user } = useAuth();
     const [reminders, setReminders] = useState({});
-    const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    const { data: rawPatients } = useApi(getPatients);
+    const { data: rawLogs } = useApi(getMedicationLogs);
+
+    const patients = (rawPatients || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        initials: p.name.split(' ').map(n => n[0]).join(''),
+        condition: p.conditions?.join(', ') || 'Under Care',
+        adherence: p.adherence || 85,
+        status: p.activeEscalations > 0 ? 'missed' : 'on-track',
+        refill: 'Active Prescriptions'
+    }));
+
+    const liveActivity = (rawLogs || []).slice(0, 6).map(l => ({
+        id: l.id,
+        time: new Date(l.loggedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        patient: l.patient,
+        event: `${l.action === 'TAKEN' ? 'Logged dose:' : 'Dose alert:'} ${l.drug} (${l.dosage})`,
+        type: l.action === 'TAKEN' ? 'done' : 'warn'
+    }));
 
     const sendReminder = (patientId) => {
         setReminders(r => ({ ...r, [patientId]: true }));
         setTimeout(() => setReminders(r => ({ ...r, [patientId]: false })), 2500);
     };
 
-    const avgAdherence = Math.round(PATIENTS.reduce((s, p) => s + p.adherence, 0) / PATIENTS.length);
-    const missedCount = PATIENTS.filter(p => p.status === 'missed').length;
-    const refillDue = PATIENTS.filter(p => p.refill.includes('due TODAY') || p.refill.includes('in 5')).length;
+    const avgAdherence = patients.length > 0 ? Math.round(patients.reduce((s, p) => s + p.adherence, 0) / patients.length) : 0;
+    const missedCount = patients.filter(p => p.status === 'missed').length;
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
@@ -59,11 +68,11 @@ export default function CaregiverDashboardPage() {
                     <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <p className="text-white/60 text-xs uppercase tracking-widest mb-1">{today}</p>
-                            <h2 className="text-2xl sm:text-3xl font-black mb-1">Good morning! 👋</h2>
+                            <h2 className="text-2xl sm:text-3xl font-black mb-1">Good day, {user?.name || 'Caregiver'}! 👋</h2>
                             <p className="text-white/80 text-sm">
                                 {missedCount > 0
-                                    ? `⚠️ ${missedCount} patient${missedCount > 1 ? 's have' : ' has'} missed a dose today — check below.`
-                                    : '✅ All patients are on track today. Great job!'}
+                                    ? `⚠️ ${missedCount} patient${missedCount > 1 ? 's have' : ' has'} an active escalation alert.`
+                                    : '✅ All monitored patients are currently stable.'}
                             </p>
                         </div>
                         <div className="flex gap-3">
@@ -72,7 +81,7 @@ export default function CaregiverDashboardPage() {
                                 <p className="text-[11px] text-white/70 uppercase tracking-wide">Avg Adherence</p>
                             </div>
                             <div className="bg-white/15 rounded-2xl px-5 py-3 text-center">
-                                <p className="text-2xl font-black">{PATIENTS.length}</p>
+                                <p className="text-2xl font-black">{patients.length}</p>
                                 <p className="text-[11px] text-white/70 uppercase tracking-wide">Patients</p>
                             </div>
                         </div>
@@ -82,9 +91,9 @@ export default function CaregiverDashboardPage() {
                 {/* KPI Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
-                        { label: 'Patients Monitored', value: PATIENTS.length, icon: 'groups', from: 'from-blue-500', to: 'to-indigo-600', sub: 'all active' },
-                        { label: 'Missed Doses Today', value: missedCount, icon: 'medication_liquid', from: 'from-rose-500', to: 'to-red-600', sub: 'George Johnson' },
-                        { label: 'Refills Due Soon', value: refillDue, icon: 'autorenew', from: 'from-amber-500', to: 'to-orange-500', sub: '1 due today' },
+                        { label: 'Patients Monitored', value: patients.length, icon: 'groups', from: 'from-blue-500', to: 'to-indigo-600', sub: 'live database panel' },
+                        { label: 'Missed Alerts', value: missedCount, icon: 'medication_liquid', from: 'from-rose-500', to: 'to-red-600', sub: 'require attention' },
+                        { label: 'Live Logs', value: rawLogs ? rawLogs.length : 0, icon: 'receipt_long', from: 'from-amber-500', to: 'to-orange-500', sub: 'medication logs' },
                         { label: 'Avg. Adherence', value: `${avgAdherence}%`, icon: 'analytics', from: 'from-emerald-500', to: 'to-teal-600', sub: 'all patients' },
                     ].map(k => (
                         <div key={k.label} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -107,9 +116,13 @@ export default function CaregiverDashboardPage() {
                             <Link to="/caregiver/patients" className="text-xs text-primary font-bold hover:underline">View All →</Link>
                         </div>
                         <div className="divide-y divide-slate-100">
-                            {PATIENTS.map(p => {
+                            {patients.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 text-xs">
+                                    No patients assigned in database.
+                                </div>
+                            ) : patients.map(p => {
                                 const sent = reminders[p.id];
-                                const cfg = ADHERENCE_CFG[p.status];
+                                const cfg = ADHERENCE_CFG[p.status] || ADHERENCE_CFG['on-track'];
                                 return (
                                     <div key={p.id} className={`flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors gap-4 ${p.status === 'missed' ? 'bg-rose-50/40' : ''}`}>
                                         <div className="flex items-center gap-3 min-w-0">
@@ -118,7 +131,7 @@ export default function CaregiverDashboardPage() {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-bold text-slate-900 truncate">{p.name}</p>
-                                                <p className="text-xs text-slate-400 truncate">{p.condition} · Next: {p.nextDrug} @ {p.nextDose}</p>
+                                                <p className="text-xs text-slate-400 truncate">{p.condition}</p>
                                                 <div className="flex items-center gap-2 mt-1.5">
                                                     <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                                         <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${p.adherence}%` }} />
@@ -142,14 +155,18 @@ export default function CaregiverDashboardPage() {
                         </div>
                     </div>
 
-                    {/* Activity */}
+                    {/* Live Activity Feed */}
                     <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100">
-                            <h3 className="font-bold text-slate-900">Today's Activity</h3>
+                            <h3 className="font-bold text-slate-900">Today's Live Activity</h3>
                         </div>
                         <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                            {ACTIVITY.map((a, i) => {
-                                const cfg = STATUS_CFG[a.type];
+                            {liveActivity.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 text-xs">
+                                    No live medication logs recorded yet today.
+                                </div>
+                            ) : liveActivity.map((a, i) => {
+                                const cfg = STATUS_CFG[a.type] || STATUS_CFG.info;
                                 return (
                                     <div key={i} className="flex items-start gap-3 px-5 py-3">
                                         <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot}`} />
