@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
-import { getPatient } from '../../api/api';
+import { getPatient, recordMedicationLog } from '../../api/api';
 
 /* ── Time Helper Functions ─────────────────────────────────── */
 function parseTimeToMinutes(timeStr) {
@@ -248,7 +248,7 @@ function DoseTile({ dose, now, onVerify, onQuickLog, onViewDetails, index }) {
 export default function DailyDosePage() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { data: realPatient } = useApi(() => getPatient(user?.id), [user?.id]);
+    const { data: realPatient } = useApi(() => getPatient(user?.id || user?.userId), [user?.id, user?.userId]);
 
     const [rawDoses, setRawDoses] = useState(() => {
         const saved = localStorage.getItem('meditrack_patient_doses');
@@ -270,13 +270,16 @@ export default function DailyDosePage() {
         return () => clearInterval(t);
     }, []);
 
-    // Sync with real database prescriptions if present
+    // Sync with real database prescriptions / schedules if present
     useEffect(() => {
-        if (realPatient && Array.isArray(realPatient.schedules) && realPatient.schedules.length > 0) {
-            const saved = localStorage.getItem('meditrack_patient_doses');
-            const savedDoses = saved ? JSON.parse(saved) : [];
-            const savedMap = new Map(savedDoses.map(d => [d.id, d]));
+        if (!realPatient) return;
 
+        const saved = localStorage.getItem('meditrack_patient_doses');
+        const savedDoses = saved ? JSON.parse(saved) : [];
+        const savedMap = new Map(savedDoses.map(d => [d.id, d]));
+
+        // Case A: Real Schedules from database
+        if (Array.isArray(realPatient.schedules) && realPatient.schedules.length > 0) {
             const dbMapped = realPatient.schedules.map((s, idx) => {
                 const existing = savedMap.get(s.id) || savedMap.get(idx + 1);
                 const isTaken = existing?.status === 'taken' || (s.logs && s.logs.length > 0 && s.logs[0].action === 'TAKEN');
@@ -286,19 +289,51 @@ export default function DailyDosePage() {
                     id: s.id || idx + 1,
                     scheduleId: s.id,
                     time: s.scheduledTime,
-                    name: s.prescription.drugName,
-                    dosage: s.prescription.dosage,
-                    instruction: s.prescription.instructions || s.prescription.frequency || 'Take as directed',
+                    name: s.prescription?.drugName || 'Medication',
+                    dosage: s.prescription?.dosage || '',
+                    instruction: s.prescription?.instructions || s.prescription?.frequency || 'Take as directed',
                     status: isTaken ? 'taken' : 'upcoming',
                     loggedAt: loggedAt,
-                    icon: s.prescription.drugName.toLowerCase().includes('aspirin') ? 'pill'
-                        : s.prescription.drugName.toLowerCase().includes('lisinopril') ? 'vaccines'
+                    icon: (s.prescription?.drugName || '').toLowerCase().includes('aspirin') ? 'pill'
+                        : (s.prescription?.drugName || '').toLowerCase().includes('lisinopril') ? 'vaccines'
                         : 'medication',
                 };
             });
 
             setRawDoses(dbMapped);
             localStorage.setItem('meditrack_patient_doses', JSON.stringify(dbMapped));
+        } else if (Array.isArray(realPatient.prescriptions) && realPatient.prescriptions.length > 0) {
+            // Case B: Prescriptions exist without schedules yet -> derive doses
+            const derived = [];
+            realPatient.prescriptions.filter(p => p.status === 'ACTIVE').forEach((p) => {
+                const freqLower = (p.frequency || '').toLowerCase();
+                let times = ['08:00 AM'];
+                if (freqLower.includes('twice') || freqLower.includes('2x') || freqLower.includes('bid')) times = ['08:00 AM', '08:00 PM'];
+                else if (freqLower.includes('three') || freqLower.includes('3x') || freqLower.includes('tid')) times = ['08:00 AM', '02:00 PM', '08:00 PM'];
+                else if (freqLower.includes('night') || freqLower.includes('bedtime') || freqLower.includes('pm')) times = ['09:00 PM'];
+
+                times.forEach((t, tIdx) => {
+                    const uniqueId = `rx_${p.id}_${tIdx}`;
+                    const existing = savedMap.get(uniqueId);
+                    derived.push({
+                        id: uniqueId,
+                        time: t,
+                        name: p.drugName,
+                        dosage: p.dosage,
+                        instruction: p.instructions || p.frequency || 'Take as directed',
+                        status: existing?.status === 'taken' ? 'taken' : 'upcoming',
+                        loggedAt: existing?.loggedAt || null,
+                        icon: p.drugName.toLowerCase().includes('aspirin') ? 'pill'
+                            : p.drugName.toLowerCase().includes('lisinopril') ? 'vaccines'
+                            : 'medication',
+                    });
+                });
+            });
+
+            if (derived.length > 0) {
+                setRawDoses(derived);
+                localStorage.setItem('meditrack_patient_doses', JSON.stringify(derived));
+            }
         }
     }, [realPatient]);
 
@@ -331,8 +366,20 @@ export default function DailyDosePage() {
         navigate(`/patient/verify?doseId=${doseId}`);
     };
 
-    const handleQuickLog = (doseId) => {
+    const handleQuickLog = async (doseId) => {
         const timeFormatted = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const targetDose = rawDoses.find(d => d.id === doseId);
+        if (targetDose && realPatient?.id) {
+            try {
+                await recordMedicationLog({
+                    patientId: realPatient.id,
+                    scheduleId: targetDose.scheduleId || undefined,
+                    action: 'TAKEN'
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
         setRawDoses(prev => {
             const updated = prev.map(d => {
                 if (d.id === doseId) {
@@ -739,21 +786,115 @@ export default function DailyDosePage() {
                     </button>
                 )}
 
-                {doses.map((dose, i) => (
-                    <DoseTile
-                        key={dose.id}
-                        dose={dose}
-                        now={now}
-                        index={i}
-                        onVerify={handleVerify}
-                        onQuickLog={handleQuickLog}
-                        onViewDetails={handleViewDetails}
-                    />
-                ))}
+                {totalCount === 0 ? (
+                    <div className="space-y-4 animate-fade-in">
+                        {/* Welcome Status Card */}
+                        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xl shadow-slate-200/50">
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-blue-500/25">
+                                        {user?.name?.[0] || 'P'}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-slate-900 leading-tight">{user?.name || 'Patient'}</h3>
+                                        <p className="text-xs text-slate-400 font-semibold">{realPatient?.pid ? `${realPatient.pid} · ` : ''}{user?.email}</p>
+                                    </div>
+                                </div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    Profile Active
+                                </span>
+                            </div>
+
+                            {/* Vitals Summary Grid */}
+                            <div className="grid grid-cols-3 gap-2.5 py-3 border-y border-slate-100 mb-4 bg-slate-50/60 rounded-2xl px-3">
+                                <div className="text-center">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Blood Type</p>
+                                    <p className="text-sm font-black text-slate-800">{realPatient?.bloodType || 'O+'}</p>
+                                </div>
+                                <div className="text-center border-x border-slate-200/60">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Weight</p>
+                                    <p className="text-sm font-black text-slate-800">{realPatient?.weight || '70 kg'}</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Doctor</p>
+                                    <p className="text-sm font-black text-blue-600 truncate">{realPatient?.doctor ? `Dr. ${realPatient.doctor.lastName}` : 'Assigned'}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-4 flex items-start gap-3">
+                                <span className="material-symbols-outlined text-blue-600 text-[22px] flex-shrink-0 mt-0.5">check_circle</span>
+                                <div className="text-xs text-slate-600 leading-relaxed">
+                                    <p className="font-bold text-slate-800 mb-0.5">Health Profile Complete &amp; Verified</p>
+                                    Your personal information, emergency contacts, and medical history have been securely recorded. When your care team adds active medications, your daily dose alarms and tracker will automatically appear here.
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Quick Navigation Cards */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => navigate('/patient/profile')}
+                                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all text-left group"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                    <span className="material-symbols-outlined text-[20px]">badge</span>
+                                </div>
+                                <p className="font-bold text-slate-800 text-sm">Health Profile</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">View emergency contacts &amp; vitals</p>
+                            </button>
+
+                            <button
+                                onClick={() => navigate('/patient/verify')}
+                                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all text-left group"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                    <span className="material-symbols-outlined text-[20px]">photo_camera</span>
+                                </div>
+                                <p className="font-bold text-slate-800 text-sm">Pill Scanner</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Verify medication visually</p>
+                            </button>
+
+                            <button
+                                onClick={() => navigate('/patient/insights')}
+                                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all text-left group"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                    <span className="material-symbols-outlined text-[20px]">analytics</span>
+                                </div>
+                                <p className="font-bold text-slate-800 text-sm">Insights</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Track adherence trends</p>
+                            </button>
+
+                            <button
+                                onClick={() => navigate('/patient/rewards')}
+                                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all text-left group"
+                            >
+                                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                                    <span className="material-symbols-outlined text-[20px]">emoji_events</span>
+                                </div>
+                                <p className="font-bold text-slate-800 text-sm">Rewards</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Streak points &amp; badges</p>
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    doses.map((dose, i) => (
+                        <DoseTile
+                            key={dose.id}
+                            dose={dose}
+                            now={now}
+                            index={i}
+                            onVerify={handleVerify}
+                            onQuickLog={handleQuickLog}
+                            onViewDetails={handleViewDetails}
+                        />
+                    ))
+                )}
 
                 {/* Motivational footer */}
                 <div className="pt-4 text-center">
-                    {pct === 100 ? (
+                    {pct === 100 && totalCount > 0 ? (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-sm">
                             <p className="text-3xl mb-2">🎉</p>
                             <p className="text-lg font-black text-emerald-800">All doses complete!</p>
@@ -764,11 +905,11 @@ export default function DailyDosePage() {
                             <p className="text-sm font-bold text-rose-800">End of daily schedule</p>
                             <p className="text-xs text-rose-600 mt-0.5">Please take and record your missed medication when safe to do so.</p>
                         </div>
-                    ) : (
+                    ) : totalCount > 0 ? (
                         <p className="text-xs text-slate-400 font-medium">
                             {takenCount === 0 ? "Let's get started — log your first dose today!" : `${takenCount} of ${totalCount} doses completed today.`}
                         </p>
-                    )}
+                    ) : null}
                 </div>
             </div>
         </div>

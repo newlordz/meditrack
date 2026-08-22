@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import { useLiveBadgeCount } from '../hooks/useLiveBadgeCount';
+import { useApi } from '../hooks/useApi';
+import { getEscalations } from '../api/api';
 
 const NAV_ITEMS = {
     patient: [
@@ -59,17 +60,9 @@ export default function Sidebar() {
         .toUpperCase()
         .slice(0, 2) || 'U';
 
-    const liveEscalations = useLiveBadgeCount(
-        'meditrack_escalations_v2',
-        (data) => data.filter(e => e.status === 'active' || !e.status).length,
-        3
-    );
-
-    const liveConflicts = useLiveBadgeCount(
-        'meditrack_conflicts',
-        (data) => data.filter(c => c.severity === 'high' && c.status !== 'resolved').length,
-        3
-    );
+    const { data: rawEscalations } = useApi(() => getEscalations(user?.userId || user?.id), [user?.userId, user?.id]);
+    const liveEscalations = (rawEscalations || []).filter(e => e.status === 'ACTIVE' || e.status === 'active').length;
+    const liveConflicts = (rawEscalations || []).filter(e => (e.severity === 'CRITICAL' || e.severity === 'HIGH') && e.status === 'ACTIVE').length;
 
     const displayItems = items.map(item => {
         if (item.badgeKey === 'escalations') {
@@ -154,11 +147,8 @@ export function MobileNav() {
     const role = user?.role || 'patient';
     const items = NAV_ITEMS[role] || [];
 
-    const liveEscalations = useLiveBadgeCount(
-        'meditrack_escalations_v2',
-        (data) => data.filter(e => e.status === 'active' || !e.status).length,
-        3
-    );
+    const { data: rawEscalations } = useApi(() => getEscalations(user?.userId || user?.id), [user?.userId, user?.id]);
+    const liveEscalations = (rawEscalations || []).filter(e => e.status === 'ACTIVE' || e.status === 'active').length;
 
     // On mobile, only show top 4-5 items to prevent crowding
     const mobileItems = items.slice(0, 5).map(item => {
@@ -201,10 +191,8 @@ export function MobileHeader() {
     const role = user?.role || 'patient';
     const items = NAV_ITEMS[role] || [];
     const roleLabel = ROLE_LABELS[role] || 'Portal';
-    const mockUser = PORTAL_USERS[role] || { name: 'User', subtitle: 'Member' };
-    
-    const displayName = user?.name || mockUser.name;
-    const displaySubtitle = user?.staffNumber ? `Staff ID: ${user.staffNumber}` : user?.email || mockUser.subtitle;
+    const displayName = user?.name || (role === 'doctor' ? 'Clinician' : role === 'pharmacist' ? 'Pharmacist' : role === 'caregiver' ? 'Caregiver' : 'Patient');
+    const displaySubtitle = user?.staffNumber ? `Staff ID: ${user.staffNumber}` : user?.email || (role === 'doctor' ? 'Attending Physician' : role === 'pharmacist' ? 'Lead Pharmacist' : 'Member');
     const initials = displayName
         .split(' ')
         .filter(Boolean)
@@ -215,11 +203,8 @@ export function MobileHeader() {
         .slice(0, 2)
         .toUpperCase() || 'U';
 
-    const liveEscalations = useLiveBadgeCount(
-        'meditrack_escalations_v2',
-        (data) => data.filter(e => e.status === 'active' || !e.status).length,
-        3
-    );
+    const { data: rawEscalations } = useApi(() => getEscalations(user?.userId || user?.id), [user?.userId, user?.id]);
+    const liveEscalations = (rawEscalations || []).filter(e => e.status === 'ACTIVE' || e.status === 'active').length;
 
     const displayItems = items.map(item => {
         if (item.badgeKey === 'escalations') {

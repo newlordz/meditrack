@@ -20,17 +20,21 @@ export default function CaregiverAlertsPage() {
     const [activeTab, setActiveTab] = useState('all');
     const [notified, setNotified] = useState(new Set());
 
-    const alerts = (rawEscalations || []).map(e => ({
-        id: e.id,
-        patient: e.patientName,
-        initials: (e.patientName || 'P').split(' ').map(n => n[0]).join(''),
-        severity: e.severity?.toLowerCase() === 'critical' ? 'critical' : 'warning',
-        title: e.reason,
-        desc: `Patient ${e.patientName} flagged with ${e.severity} status. Action required.`,
-        time: new Date(e.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-        resolved: e.status === 'RESOLVED' || e.status === 'dismissed',
-        read: e.status === 'RESOLVED',
-    }));
+    const alerts = (rawEscalations || []).map(e => {
+        const patientName = e.patient || e.patientName || 'Patient';
+        const title = e.trigger || e.reason || e.category || 'Clinical Escalation Alert';
+        return {
+            id: e.id,
+            patient: patientName,
+            initials: patientName.split(' ').map(n => n[0]).join('').slice(0, 2),
+            severity: e.severity?.toLowerCase() === 'critical' ? 'critical' : 'warning',
+            title: title,
+            desc: `Patient ${patientName} flagged: ${title}. Action required.`,
+            time: new Date(e.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+            resolved: e.status === 'RESOLVED' || e.status === 'dismissed' || e.status === 'DISMISSED',
+            read: e.status === 'RESOLVED' || e.status === 'dismissed' || e.status === 'DISMISSED',
+        };
+    });
 
     const handleDismiss = async (id) => {
         try {

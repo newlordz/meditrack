@@ -43,7 +43,16 @@ export default function PharmacistDashboardPage() {
     const { data: rawRefills, refetch: refetchRefills } = useApi(getRefillRequests);
     const { data: rawLogs, refetch: refetchLogs } = useApi(getMedicationLogs);
 
-    const pendingRefills = (rawRefills || []).filter(r => r.pharmacyStatus === 'PENDING');
+    const pendingRefills = (rawRefills || []).filter(r => r.status === 'pending' || r.pharmacyStatus === 'PENDING').map(r => ({
+        id: r.id,
+        name: r.name || 'Patient',
+        medication: r.medication || 'Medication',
+        dosage: r.dosage || 'Standard dose',
+        urgency: 'urgent',
+        requestDate: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'Today',
+        doctor: r.doctor || 'Clinic Doctor',
+        status: r.status || 'pending'
+    }));
     const liveActivity = (rawLogs || []).slice(0, 6).map(l => ({
         id: l.id,
         time: new Date(l.loggedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),

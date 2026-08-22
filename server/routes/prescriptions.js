@@ -42,10 +42,44 @@ router.get('/', async (req, res) => {
 // POST /api/prescriptions
 router.post('/', async (req, res) => {
     try {
-        const { patientId, prescriberId, drugName, dosage, frequency, instructions, urgency } = req.body;
+        let { patientId, prescriberId, drugName, dosage, frequency, instructions, urgency } = req.body;
+
+        // Resolve patient if patientId was a userId
+        let patient = await prisma.patient.findUnique({ where: { id: patientId } });
+        if (!patient) {
+            patient = await prisma.patient.findUnique({ where: { userId: patientId } });
+        }
+        if (patient) {
+            patientId = patient.id;
+        }
+
         const prescription = await prisma.prescription.create({
             data: { patientId, prescriberId, drugName, dosage, frequency, instructions, status: 'ACTIVE' }
         });
+
+        // Automatically generate scheduled doses for this prescription
+        const freqLower = (frequency || '').toLowerCase();
+        let defaultTimes = ['08:00 AM'];
+        if (freqLower.includes('twice') || freqLower.includes('2x') || freqLower.includes('bid') || freqLower.includes('12h')) {
+            defaultTimes = ['08:00 AM', '08:00 PM'];
+        } else if (freqLower.includes('three') || freqLower.includes('3x') || freqLower.includes('tid') || freqLower.includes('8h')) {
+            defaultTimes = ['08:00 AM', '02:00 PM', '08:00 PM'];
+        } else if (freqLower.includes('four') || freqLower.includes('4x') || freqLower.includes('qid') || freqLower.includes('6h')) {
+            defaultTimes = ['08:00 AM', '12:00 PM', '04:00 PM', '08:00 PM'];
+        } else if (freqLower.includes('night') || freqLower.includes('bedtime') || freqLower.includes('pm')) {
+            defaultTimes = ['09:00 PM'];
+        }
+
+        for (const scheduledTime of defaultTimes) {
+            await prisma.schedule.create({
+                data: {
+                    prescriptionId: prescription.id,
+                    patientId: patientId,
+                    scheduledTime: scheduledTime
+                }
+            });
+        }
+
         res.status(201).json(prescription);
     } catch (err) {
         console.error(err);

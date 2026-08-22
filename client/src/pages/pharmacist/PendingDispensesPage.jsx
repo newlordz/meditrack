@@ -26,16 +26,16 @@ export default function PendingDispensesPage() {
     const [search, setSearch] = useState('');
     const [urgencyFilter, setUrgencyFilter] = useState('all');
 
-    const pending = (rawRefills || []).filter(r => r.pharmacyStatus === 'PENDING').map(r => ({
+    const pending = (rawRefills || []).filter(r => (r.status === 'pending' || r.pharmacyStatus === 'PENDING')).map(r => ({
         id: r.id,
-        patient: r.name,
-        drug: r.medication,
-        dosage: r.dosage,
+        patient: r.name || 'Patient',
+        drug: r.medication || 'Medication',
+        dosage: r.dosage || 'Standard dose',
         qty: 30,
         doctor: r.doctor || 'Clinic Doctor',
         urgency: 'urgent',
         instructions: 'Take as directed by doctor',
-        requestDate: new Date(r.requestDate).toLocaleDateString([], { month: 'short', day: 'numeric' })
+        requestDate: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : (r.requestDate || 'Today')
     }));
 
     const handleDispense = async () => {

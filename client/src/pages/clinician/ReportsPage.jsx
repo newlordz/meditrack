@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useApi } from '../../hooks/useApi';
+import { getPatients } from '../../api/api';
 
 const REPORT_TEMPLATES = [
     {
@@ -51,6 +53,7 @@ function TypeBadge({ type }) {
 }
 
 export default function ReportsPage() {
+    const { data: rawPatients } = useApi(getPatients);
     const [reports, setReports] = useState(() => {
         const saved = localStorage.getItem('meditrack_clinician_reports_v2');
         return saved ? JSON.parse(saved) : DEFAULT_REPORTS;
@@ -90,7 +93,12 @@ export default function ReportsPage() {
     };
 
     const handleDownload = (report) => {
-        const patients = SHARED_PATIENTS;
+        const patients = (rawPatients || []).map(p => ({
+            name: p.name,
+            pid: p.pid,
+            adherence: p.adherence ?? 85,
+            condition: p.conditions?.join('; ') || 'Under Clinical Care'
+        }));
         let content = 'Patient Name,MRN,Adherence Score,Risk Level,Condition\n';
         patients.forEach(p => {
             const risk = p.adherence < 50 ? 'High' : p.adherence < 80 ? 'Moderate' : 'Low';

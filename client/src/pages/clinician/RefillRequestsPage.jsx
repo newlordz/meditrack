@@ -1,51 +1,7 @@
-import { useState, useEffect } from 'react';
-
-// ── Mock Data ──────────────────────────────────────────────────────────────────
-// supplyDays drives urgency: 0 = critical, 1-3 = urgent, 4-7 = soon, 8+ = routine
-const INITIAL_REFILLS = [
-    {
-        id: 1, name: 'John Doe', pid: '#88291', initials: 'JD',
-        medication: 'Metformin 500mg', dose: '500mg twice daily',
-        requestDate: 'Mar 5, 2026', status: 'pending',
-        supplyDays: 2, adherence: 85, flag: null,
-        lastFill: 'Feb 3, 2026', notes: '',
-    },
-    {
-        id: 2, name: 'Alice Smith', pid: '#99312', initials: 'AS',
-        medication: 'Lisinopril 10mg', dose: '10mg once daily',
-        requestDate: 'Mar 4, 2026', status: 'pending',
-        supplyDays: 5, adherence: 98, flag: null,
-        lastFill: 'Feb 2, 2026', notes: '',
-    },
-    {
-        id: 3, name: 'Robert Brown', pid: '#77410', initials: 'RB',
-        medication: 'Atorvastatin 20mg', dose: '20mg at bedtime',
-        requestDate: 'Mar 5, 2026', status: 'pending',
-        supplyDays: 0, adherence: 65, flag: 'Low Adherence',
-        lastFill: 'Feb 4, 2026', notes: '',
-    },
-    {
-        id: 4, name: 'Michael Wilson', pid: '#44102', initials: 'MW',
-        medication: 'Albuterol Inhaler', dose: '2 puffs as needed',
-        requestDate: 'Mar 3, 2026', status: 'approved', approvedAt: 'Mar 3, 2026',
-        supplyDays: 14, adherence: 92, flag: null,
-        lastFill: 'Feb 1, 2026', notes: 'Patient requested early refill due to travel.',
-    },
-    {
-        id: 5, name: 'Sarah Green', pid: '#55209', initials: 'SG',
-        medication: 'Warfarin 5mg', dose: '5mg once daily',
-        requestDate: 'Mar 1, 2026', status: 'denied', deniedAt: 'Mar 2, 2026',
-        supplyDays: 10, adherence: 70, flag: 'Requires INR Blood Check',
-        lastFill: 'Jan 30, 2026', notes: 'Hold until INR result comes back.',
-    },
-    {
-        id: 6, name: 'Yaw Darko', pid: '#66311', initials: 'YD',
-        medication: 'Warfarin 5mg', dose: '5mg once daily',
-        requestDate: 'Mar 5, 2026', status: 'pending',
-        supplyDays: 1, adherence: 76, flag: 'Irregular Dosing Pattern',
-        lastFill: 'Feb 5, 2026', notes: '',
-    },
-];
+import { useState } from 'react';
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getRefillRequests, updateRefillStatus } from '../../api/api';
 
 const TABS = [
     { key: 'pending', label: 'Pending' },
@@ -75,21 +31,39 @@ function AdherenceBar({ value }) {
 }
 
 export default function RefillRequestsPage() {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('pending');
     const [searchQuery, setSearchQuery] = useState('');
-    const [refills, setRefills] = useState(() => {
-        const saved = localStorage.getItem('meditrack_refills_v2');
-        return saved ? JSON.parse(saved) : INITIAL_REFILLS;
-    });
+    const { data: rawRefills, refetch } = useApi(() => getRefillRequests(user?.userId || user?.id), [user?.userId, user?.id]);
+    
     const [reviewTarget, setReviewTarget] = useState(null); // refill being reviewed
     const [reviewAction, setReviewAction] = useState(null); // 'approve' | 'deny'
     const [reviewNote, setReviewNote] = useState('');
     const [toast, setToast] = useState(null);
     const [detailTarget, setDetailTarget] = useState(null);
 
-    useEffect(() => {
-        localStorage.setItem('meditrack_refills_v2', JSON.stringify(refills));
-    }, [refills]);
+    const refills = (rawRefills || []).map(r => {
+        const rawStatus = (r.status || 'pending').toLowerCase();
+        let status = 'pending';
+        if (rawStatus === 'approved' || rawStatus === 'ready' || rawStatus === 'dispensed') status = 'approved';
+        else if (rawStatus === 'rejected' || rawStatus === 'denied') status = 'denied';
+
+        return {
+            id: r.id,
+            name: r.name || 'Patient',
+            pid: r.pid ? (r.pid.startsWith('#') ? r.pid : `#${r.pid}`) : '#P-001',
+            initials: r.name ? r.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'PT',
+            medication: r.medication || 'Medication',
+            dose: r.dosage ? `${r.dosage} as prescribed` : 'As directed',
+            requestDate: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
+            status: status,
+            supplyDays: status === 'pending' ? 2 : 14,
+            adherence: 85,
+            flag: status === 'denied' ? 'Denied by clinician' : null,
+            lastFill: 'Recent',
+            notes: '',
+        };
+    });
 
     const showToast = (msg, type = 'success') => {
         setToast({ msg, type });
@@ -103,16 +77,17 @@ export default function RefillRequestsPage() {
         setReviewNote('');
     };
 
-    const confirmAction = () => {
+    const confirmAction = async () => {
         if (!reviewTarget) return;
-        setRefills(prev => prev.map(r => {
-            if (r.id !== reviewTarget.id) return r;
-            if (reviewAction === 'approve') {
-                return { ...r, status: 'approved', approvedAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }), notes: reviewNote };
-            }
-            return { ...r, status: 'denied', deniedAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }), notes: reviewNote, flag: reviewNote ? `Denied: ${reviewNote}` : 'Clinician Denied' };
-        }));
-        showToast(reviewAction === 'approve' ? `Refill approved for ${reviewTarget.name}` : `Refill denied for ${reviewTarget.name}`, reviewAction === 'approve' ? 'success' : 'error');
+        const newStatus = reviewAction === 'approve' ? 'APPROVED' : 'REJECTED';
+        try {
+            await updateRefillStatus(reviewTarget.id, newStatus);
+            showToast(reviewAction === 'approve' ? `Refill approved for ${reviewTarget.name}` : `Refill denied for ${reviewTarget.name}`, reviewAction === 'approve' ? 'success' : 'error');
+            refetch();
+        } catch (err) {
+            console.error(err);
+            showToast('Failed to update refill status in database', 'error');
+        }
         setReviewTarget(null);
         setReviewAction(null);
     };

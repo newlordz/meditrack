@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getPatient } from '../../api/api';
 
 const STORE_ITEMS = [
     { id: 1, name: 'MediTrack Pro', desc: 'Unlock advanced analytics, exportable reports, and custom reminders for 1 month.', icon: 'workspace_premium', cost: 500, category: 'Pro Features', color: 'bg-violet-50 text-violet-600' },
@@ -10,33 +13,26 @@ const STORE_ITEMS = [
 ];
 
 export default function RewardsPage() {
+    const { user } = useAuth();
+    const { data: realPatient } = useApi(() => getPatient(user?.id || user?.userId), [user?.id, user?.userId]);
     const [storeOpen, setStoreOpen] = useState(false);
     const [redeemedItems, setRedeemedItems] = useState(() => {
         const s = localStorage.getItem('meditrack_redeemed_items');
         return s ? JSON.parse(s) : [];
     });
 
-    // ── Live data from localStorage doses ────────────────────────────
-    const [liveData] = useState(() => {
-        const saved = localStorage.getItem('meditrack_patient_doses');
-        const defaults = { taken: 0, missed: 0, streak: 10, points: 2450 };
-        if (!saved) return defaults;
+    let taken = 0;
+    let missed = 0;
+    if (realPatient?.schedules) {
+        realPatient.schedules.forEach(s => {
+            if (s.logs?.[0]?.action === 'TAKEN') taken++;
+            if (s.logs?.[0]?.action === 'MISSED') missed++;
+        });
+    }
 
-        const doses = JSON.parse(saved);
-        const taken = doses.filter(d => d.status === 'taken').length;
-        const missed = doses.filter(d => d.status === 'missed').length;
-
-        let streak = 10;
-        if (missed === 0 && taken > 0) streak = 13;
-        else if (missed > 2) streak = 2;
-
-        return {
-            taken,
-            missed,
-            streak,
-            points: 2450 + (taken * 50) - (missed * 10),
-        };
-    });
+    const streak = missed === 0 ? 12 : Math.max(1, 10 - missed * 2);
+    const points = 2450 + (taken * 50) - (missed * 10);
+    const liveData = { taken, missed, streak, points };
 
     // ── Derive remaining points after redemptions ─────────────────────
     const spentPoints = redeemedItems.reduce((sum, id) => {

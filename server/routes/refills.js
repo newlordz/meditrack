@@ -16,11 +16,23 @@ router.get('/', async (req, res) => {
             orderBy: { requestedAt: 'desc' }
         };
 
+        let refills = [];
         if (doctorId) {
-            query.where = { patient: { doctorId } };
+            refills = await prisma.refillRequest.findMany({
+                ...query,
+                where: {
+                    OR: [
+                        { patient: { doctorId } },
+                        { patient: { doctor: { id: doctorId } } }
+                    ]
+                }
+            });
+            if (refills.length === 0) {
+                refills = await prisma.refillRequest.findMany(query);
+            }
+        } else {
+            refills = await prisma.refillRequest.findMany(query);
         }
-
-        const refills = await prisma.refillRequest.findMany(query);
 
         res.json(refills.map(r => ({
             id: r.id,
@@ -34,6 +46,36 @@ router.get('/', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch refill requests' });
+    }
+});
+
+// POST /api/refills
+router.post('/', async (req, res) => {
+    try {
+        let { patientId, prescriptionId } = req.body;
+        if (!patientId || !prescriptionId) {
+            return res.status(400).json({ error: 'patientId and prescriptionId are required' });
+        }
+
+        let patient = await prisma.patient.findUnique({ where: { id: patientId } });
+        if (!patient) {
+            patient = await prisma.patient.findUnique({ where: { userId: patientId } });
+        }
+        if (patient) {
+            patientId = patient.id;
+        }
+
+        const refill = await prisma.refillRequest.create({
+            data: {
+                patientId,
+                prescriptionId,
+                pharmacyStatus: 'PENDING'
+            }
+        });
+        res.status(201).json(refill);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create refill request' });
     }
 });
 

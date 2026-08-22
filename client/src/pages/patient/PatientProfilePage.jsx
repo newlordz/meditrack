@@ -70,7 +70,8 @@ function ProfileField({ label, field, type = 'text', profile, draft, editing, se
 
 export default function PatientProfilePage() {
     const { user, updateUser } = useAuth();
-    const { data: realPatient } = useApi(() => getPatient(user.id), [user.id]);
+    const targetUserId = user?.id || user?.userId;
+    const { data: realPatient } = useApi(() => getPatient(targetUserId), [targetUserId]);
 
     const getDynamicDoctorsList = () => {
         if (!realPatient) return [];
@@ -98,21 +99,19 @@ export default function PatientProfilePage() {
                 if (presc.prescriber) {
                     const prescId = presc.prescriberId || presc.prescriber.id || `presc_${presc.prescriber.firstName}_${presc.prescriber.lastName}`;
                     const name = `Dr. ${presc.prescriber.firstName} ${presc.prescriber.lastName}`;
-                    if (!docMap.has(prescId)) {
+                    if (docMap.has(prescId)) {
+                        docMap.get(prescId).prescribes.push(presc.drugName);
+                    } else {
                         docMap.set(prescId, {
                             id: prescId,
                             name,
-                            email: presc.prescriber.email || '',
-                            specialty: 'Prescribing Doctor',
-                            icon: 'stethoscope',
+                            email: presc.prescriber.email || 'doctor@meditrack.com',
+                            specialty: 'Prescribing Physician',
+                            icon: 'medication',
                             color: 'bg-blue-50 text-blue-600',
-                            since: 'Active',
-                            prescribes: []
+                            since: presc.issuedAt ? new Date(presc.issuedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recent',
+                            prescribes: [presc.drugName]
                         });
-                    }
-                    const docObj = docMap.get(prescId);
-                    if (!docObj.prescribes.includes(presc.drugName)) {
-                        docObj.prescribes.push(presc.drugName);
                     }
                 }
             });
@@ -120,48 +119,65 @@ export default function PatientProfilePage() {
         
         return Array.from(docMap.values());
     };
-    const [profile, setProfile] = useState(EMPTY_PROFILE);
+
+    const [profile, setProfile] = useState(() => {
+        const saved = localStorage.getItem('meditrack_patient_profile');
+        return saved ? JSON.parse(saved) : EMPTY_PROFILE;
+    });
+
     const [editing, setEditing] = useState(false);
-    const [draft, setDraft] = useState(EMPTY_PROFILE);
-    const [prefs, setPrefs] = useState({ doseReminders: true, missedAlerts: true, weeklyReport: false, doctorUpdates: true, streakNotifs: true });
-    const [showAddAllergy, setShowAddAllergy] = useState(false);
+    const [draft, setDraft] = useState(profile);
+    const [prefs, setPrefs] = useState(() => {
+        const saved = localStorage.getItem('meditrack_patient_prefs');
+        return saved ? JSON.parse(saved) : { doseReminders: true, missedAlerts: true, weeklyReport: false, doctorUpdates: true, streakNotifs: true };
+    });
     const [newAllergy, setNewAllergy] = useState('');
-    const [showAddCond, setShowAddCond] = useState(false);
     const [newCond, setNewCond] = useState('');
+    const [showAddAllergy, setShowAddAllergy] = useState(false);
+    const [showAddCond, setShowAddCond] = useState(false);
+    const [activeTab, setActiveTab] = useState('personal');
 
     useEffect(() => {
         if (realPatient) {
-            const p = {
-                firstName: realPatient.user.firstName,
-                lastName: realPatient.user.lastName,
-                email: realPatient.user.email,
-                avatar: (realPatient.user.firstName[0] || 'U').toUpperCase(),
-                dob: realPatient.dob ? new Date(realPatient.dob).toISOString().split('T')[0] : '1970-01-01',
+            const mapped = {
+                firstName: realPatient.user?.firstName || '',
+                lastName: realPatient.user?.lastName || '',
+                email: realPatient.user?.email || '',
+                avatar: realPatient.user?.firstName ? realPatient.user.firstName[0] : 'U',
+                dob: realPatient.dob ? new Date(realPatient.dob).toISOString().split('T')[0] : '',
                 gender: realPatient.gender || 'Not specified',
                 bloodType: realPatient.bloodType || 'Unknown',
-                weight: realPatient.weight || 'Unknown',
-                height: realPatient.height || 'Unknown',
+                weight: realPatient.weight || '—',
+                height: realPatient.height || '—',
                 phone: realPatient.phone || '',
                 address: realPatient.address || '',
                 emergencyContactName: realPatient.emergencyContactName || '',
-                emergencyContactRelation: realPatient.emergencyContactRelation || 'Spouse',
+                emergencyContactRelation: realPatient.emergencyContactRelation || '',
                 emergencyContactPhone: realPatient.emergencyContactPhone || '',
                 secondaryContactName: realPatient.secondaryContactName || '',
-                secondaryContactRelation: realPatient.secondaryContactRelation || 'Parent',
+                secondaryContactRelation: realPatient.secondaryContactRelation || '',
                 secondaryContactPhone: realPatient.secondaryContactPhone || '',
                 allergies: realPatient.allergies || [],
                 conditions: realPatient.conditions || [],
             };
-            setProfile(p);
-            setDraft(p);
+            setProfile(mapped);
+            setDraft(mapped);
         }
     }, [realPatient]);
+
+    const handlePrefToggle = (key) => {
+        setPrefs(prev => {
+            const updated = { ...prev, [key]: !prev[key] };
+            localStorage.setItem('meditrack_patient_prefs', JSON.stringify(updated));
+            return updated;
+        });
+    };
 
     const age = new Date().getFullYear() - new Date(profile.dob).getFullYear();
 
     const handleSave = async () => {
         try {
-            await updatePatient(user.id, {
+            await updatePatient(targetUserId, {
                 firstName: draft.firstName,
                 lastName: draft.lastName,
                 email: draft.email,
@@ -198,14 +214,14 @@ export default function PatientProfilePage() {
         setDraft(p => ({ ...p, allergies: updated }));
         setNewAllergy('');
         setShowAddAllergy(false);
-        await updatePatient(user.id, { allergies: updated }).catch(console.error);
+        await updatePatient(targetUserId, { allergies: updated }).catch(console.error);
     };
 
     const removeAllergy = async (a) => {
         const updated = profile.allergies.filter(x => x !== a);
         setProfile(p => ({ ...p, allergies: updated }));
         setDraft(p => ({ ...p, allergies: updated }));
-        await updatePatient(user.id, { allergies: updated }).catch(console.error);
+        await updatePatient(targetUserId, { allergies: updated }).catch(console.error);
     };
 
     const addCondition = async () => {
@@ -215,14 +231,14 @@ export default function PatientProfilePage() {
         setDraft(p => ({ ...p, conditions: updated }));
         setNewCond('');
         setShowAddCond(false);
-        await updatePatient(user.id, { conditions: updated }).catch(console.error);
+        await updatePatient(targetUserId, { conditions: updated }).catch(console.error);
     };
 
     const removeCondition = async (c) => {
         const updated = profile.conditions.filter(x => x !== c);
         setProfile(p => ({ ...p, conditions: updated }));
         setDraft(p => ({ ...p, conditions: updated }));
-        await updatePatient(user.id, { conditions: updated }).catch(console.error);
+        await updatePatient(targetUserId, { conditions: updated }).catch(console.error);
     };
 
 

@@ -69,6 +69,7 @@ export const updatePasswordResetRequest = (id, data) => patch(`/auth/reset-reque
 
 // ─── Escalations ─────────────────────────────────────────────────────────────
 export const getEscalations = (doctorId) => request(doctorId ? `/escalations?doctorId=${doctorId}` : '/escalations');
+export const createEscalation = (data) => post('/escalations', data);
 export const resolveEscalation = (id) => patch(`/escalations/${id}/resolve`);
 export const dismissEscalation = (id) => patch(`/escalations/${id}/dismiss`);
 
@@ -78,10 +79,12 @@ export const createPrescription = (data) => post('/prescriptions', data);
 
 // ─── Refill Requests ─────────────────────────────────────────────────────────
 export const getRefillRequests = (doctorId) => request(doctorId ? `/refills?doctorId=${doctorId}` : '/refills');
+export const requestRefill = (data) => post('/refills', data);
 export const updateRefillStatus = (id, status) => patch(`/refills/${id}`, { status });
 
 // ─── Medication Logs ─────────────────────────────────────────────────────────
 export const getMedicationLogs = () => request('/logs');
+export const recordMedicationLog = (data) => post('/logs', data);
 
 // ─── Users & Auth ────────────────────────────────────────────────────────────
 export const loginUser = (email, password) => post('/auth/login', { email, password });
@@ -97,3 +100,6 @@ export const changeMyPassword = (id, oldPassword, newPassword) => patch(`/users/
 
 // ─── Admin Log Clearing ──────────────────────────────────────────────────────
 export const clearSystemLogs = () => post('/admin/clear-logs');
+
+// ─── Medicine Picture Verification API ───────────────────────────────────────
+export const verifyMedicinePicture = (data) => post('/verify/pill', data);

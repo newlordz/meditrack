@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { COMMON_DRUGS, COMMON_INSTRUCTIONS, COMMON_CONDITIONS } from '../../data/mockData';
 import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
-import { getPatients } from '../../api/api';
+import { getPatients, createPrescription, getEscalations } from '../../api/api';
 
 
 
@@ -80,7 +80,7 @@ export default function PatientRosterPage() {
 
     // Live wait-time clock — joinedAt computed once at init
     const [now, setNow] = useState(Date.now); // lazy: calls Date.now() once
-    const { data: rawPatients } = useApi(() => getPatients(user?.userId || user?.id), [user?.userId, user?.id]);
+    const { data: rawPatients, refetch: refetchPatients } = useApi(() => getPatients(user?.userId || user?.id), [user?.userId, user?.id]);
     const [localOverrides, setLocalOverrides] = useState({});
     
     // Adapt API shape to what the roster UI expects
@@ -88,12 +88,12 @@ export default function PatientRosterPage() {
         const overrides = localOverrides[p.id] || {};
         return {
             ...p,
-            condition: overrides.condition || p.conditions?.join(', ') || 'Unknown',
-            adherence: 75,  // placeholder until logs are aggregated
+            condition: overrides.condition || p.conditions?.join(', ') || 'General Review',
+            adherence: p.adherence ?? 85,
             alertType: p.activeEscalations > 0 ? 'critical' : 'stable',
             alertText: p.activeEscalations > 0 ? `Critical: ${p.activeEscalations} escalation(s)` : 'Stable',
             refillStatus: 'normal',
-            refillText: 'Refill in 10 days',
+            refillText: 'Refill on schedule',
             queueStatus: overrides.queueStatus || 'waiting',
             waitMinutes: 10,
             needsReview: p.activeEscalations > 0,
@@ -128,23 +128,9 @@ export default function PatientRosterPage() {
     const [filters, setFilters] = useState({ needsReview: false, pendingSync: false });
     const [tempFilters, setTempFilters] = useState({ needsReview: false, pendingSync: false });
 
-    // Live escalation count
-    const [escalationCount, setEscalationCount] = useState(0);
-
-    useEffect(() => {
-        const updateCount = () => {
-            const saved = localStorage.getItem('meditrack_escalations_v2');
-            if (saved) {
-                const esc = JSON.parse(saved);
-                setEscalationCount(esc.filter(e => e.status === 'active' || !e.status).length);
-            } else {
-                setEscalationCount(3); // Default mock count
-            }
-        };
-        updateCount();
-        window.addEventListener('localStorageUpdated', updateCount);
-        return () => window.removeEventListener('localStorageUpdated', updateCount);
-    }, []);
+    // Live escalation count from database
+    const { data: rawEscalations } = useApi(() => getEscalations(user?.userId || user?.id), [user?.userId, user?.id]);
+    const escalationCount = (rawEscalations || []).filter(e => e.status === 'ACTIVE' || e.status === 'active').length;
 
     useEffect(() => {
         let timer;
@@ -290,30 +276,30 @@ export default function PatientRosterPage() {
         setShowDiagSuggestions(false);
     };
 
-    const handlePrescribeSubmit = (e) => {
+    const handlePrescribeSubmit = async (e) => {
         e.preventDefault();
         if (!selectedPatient || !prescriptionForm.drug || !prescriptionForm.qty) return;
 
-        const newPrescription = {
-            id: `RX-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
-            patient: selectedPatient.name,
-            drug: prescriptionForm.drug,
-            qty: parseInt(prescriptionForm.qty, 10),
-            doctor: user?.name || 'Dr. Sarah Chen', // Logged-in doctor's name
-            urgency: prescriptionForm.urgency,
-            instructions: prescriptionForm.instructions,
-            timestamp: new Date().toISOString()
-        };
+        try {
+            await createPrescription({
+                patientId: selectedPatient.id,
+                prescriberId: user?.userId || user?.id,
+                drugName: prescriptionForm.drug,
+                dosage: prescriptionForm.qty ? `${prescriptionForm.qty}mg` : 'Standard dose',
+                frequency: 'Once daily',
+                instructions: prescriptionForm.instructions || 'Take as directed',
+                urgency: prescriptionForm.urgency,
+            });
 
-        const existingPending = JSON.parse(localStorage.getItem('meditrack_pending_prescriptions') || '[]');
+            // Dispatch event to notify listeners
+            window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
 
-        // Use functional state payload pattern to safely update
-        localStorage.setItem('meditrack_pending_prescriptions', JSON.stringify([newPrescription, ...existingPending]));
-
-        // Dispatch special event to notify Pharmacist dashboard
-        window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
-
-        setToastMessage(`Prescribed ${prescriptionForm.drug} to ${selectedPatient.name}`);
+            setToastMessage(`Prescribed ${prescriptionForm.drug} to ${selectedPatient.name}`);
+            refetchPatients();
+        } catch (err) {
+            console.error(err);
+            setToastMessage(`Failed to save prescription: ${err.message}`);
+        }
         setTimeout(() => setToastMessage(null), 3000);
 
         setPrescriptionForm({ drug: '', qty: '', instructions: '', urgency: 'normal' });

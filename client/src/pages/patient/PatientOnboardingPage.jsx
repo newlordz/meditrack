@@ -45,8 +45,9 @@ export default function PatientOnboardingPage() {
 
     // Pre-populate if patient data exists
     useEffect(() => {
-        if (!user?.id) return;
-        getPatient(user.id)
+        const targetId = user?.id || user?.userId;
+        if (!targetId) return;
+        getPatient(targetId)
             .then(p => {
                 if (!p) return;
                 setForm(prev => ({
@@ -130,7 +131,8 @@ export default function PatientOnboardingPage() {
         setError('');
 
         try {
-            await updatePatient(user.id, {
+            const targetId = user?.id || user?.userId;
+            await updatePatient(targetId, {
                 phone: form.phone,
                 gender: form.gender,
                 dob: form.dob,

@@ -31,16 +31,25 @@ export default function CaregiverPatientsPage() {
         setTimeout(() => setReminders(r => ({ ...r, [id]: false })), 2500);
     };
 
-    const caregiverPatients = (allPatients || []).filter(p => p.caregiverName);
+    const basePatients = (allPatients || []).map(p => ({
+        ...p,
+        initials: p.name ? p.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'P',
+        condition: (p.conditions && p.conditions.length > 0) ? p.conditions.join(', ') : 'Under Care',
+        caregiverRelationship: p.caregiverRelationship || 'Monitored Patient',
+        adherence: p.adherence || 85,
+        status: p.activeEscalations > 0 ? 'missed' : 'on-track',
+        refillStatus: 'normal',
+        refill: 'Active Prescriptions',
+    }));
 
-    const searchFiltered = caregiverPatients.filter(p => {
+    const searchFiltered = basePatients.filter(p => {
         const q = search.toLowerCase();
-        return p.name.toLowerCase().includes(q) || p.conditions?.join(',').toLowerCase().includes(q);
+        return p.name.toLowerCase().includes(q) || p.condition.toLowerCase().includes(q);
     });
 
     const filtered = searchFiltered.filter(p => {
-        if (activeTab === 'critical') return p.activeEscalations > 0;
-        if (activeTab === 'active') return p.activeEscalations === 0;
+        if (activeTab === 'missed') return p.status === 'missed';
+        if (activeTab === 'refill') return p.refillStatus === 'urgent' || p.refillStatus === 'warning';
         return true;
     });
 

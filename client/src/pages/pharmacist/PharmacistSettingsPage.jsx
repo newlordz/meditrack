@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { clearSystemLogs } from '../../api/api';
 import MFASettingsCard from '../../components/MFASettingsCard';
 
 const TOGGLE_SECTIONS = [
@@ -58,40 +56,6 @@ export default function PharmacistSettingsPage() {
     const handleSave = () => {
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
-    };
-
-    const [dangerMsg, setDangerMsg] = useState('');
-    const navigate = useNavigate();
-
-    const handleClearQueue = () => {
-        if (!window.confirm('Are you sure you want to clear the entire pending dispense queue? This cannot be undone.')) return;
-        setDangerMsg('Pending queue cleared successfully.');
-        setTimeout(() => setDangerMsg(''), 3000);
-    };
-
-    const handleClearSystemLogs = async () => {
-        if (!window.confirm('WARNING: This will permanently delete all patients, users, medication logs, clinical escalations, refill requests, and password reset requests. The system will start completely fresh. Are you sure you want to proceed?')) return;
-        setDangerMsg('Clearing logs...');
-        try {
-            await clearSystemLogs();
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('meditrack_') && key !== 'meditrack_user') {
-                    localStorage.removeItem(key);
-                }
-            });
-            window.dispatchEvent(new Event('localStorageUpdated'));
-            setDangerMsg('All system logs have been cleared successfully. System is now fresh!');
-            setTimeout(() => setDangerMsg(''), 4000);
-        } catch (err) {
-            setDangerMsg(`Failed to clear logs: ${err.message}`);
-            setTimeout(() => setDangerMsg(''), 4000);
-        }
-    };
-
-    const handleForceLogout = () => {
-        if (!window.confirm('Force-logout all active sessions? All pharmacist sessions will be terminated immediately.')) return;
-        setDangerMsg('All sessions terminated. Logging you out…');
-        setTimeout(() => { logout(); navigate('/login'); }, 1800);
     };
 
     return (
@@ -168,37 +132,6 @@ export default function PharmacistSettingsPage() {
                         </div>
                     </div>
                 ))}
-
-                {/* Danger Zone */}
-                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6">
-                    <h3 className="font-bold text-rose-800 mb-1">Danger Zone</h3>
-                    <p className="text-sm text-rose-600 mb-4">These actions affect the entire pharmacy system and cannot be undone.</p>
-                    {dangerMsg && (
-                        <div className="mb-4 px-4 py-2.5 bg-rose-100 border border-rose-300 rounded-xl text-sm font-semibold text-rose-800">
-                            ⚠ {dangerMsg}
-                        </div>
-                    )}
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                            onClick={handleClearQueue}
-                            className="px-4 py-2 border border-rose-300 text-rose-700 font-bold rounded-xl text-sm hover:bg-rose-100 transition-colors"
-                        >
-                            Clear Pending Queue
-                        </button>
-                        <button
-                            onClick={handleClearSystemLogs}
-                            className="px-4 py-2 bg-rose-600 text-white font-bold rounded-xl text-sm hover:bg-rose-700 transition-colors shadow-sm"
-                        >
-                            Reset System Logs (Start Fresh)
-                        </button>
-                        <button
-                            onClick={handleForceLogout}
-                            className="px-4 py-2 border border-rose-300 text-rose-700 font-bold rounded-xl text-sm hover:bg-rose-100 transition-colors"
-                        >
-                            Force Logout All Sessions
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     );

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApi } from '../../hooks/useApi';
-import { getPatients } from '../../api/api';
+import { getPatients, getPatient } from '../../api/api';
 
 const STATUS_CFG = {
     active: { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', label: 'Active' },
@@ -10,17 +10,25 @@ const STATUS_CFG = {
 
 function getPharmStatus(patient) {
     if (patient.activeEscalations > 0) return 'critical';
-    if (patient.meds === 0) return 'flagged';
+    if (!patient.meds || patient.meds === 0) return 'flagged';
     return 'active';
 }
 
 export default function PatientRecordsPage() {
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
-    const [selectedPatient, setSelectedPatient] = useState(null);
+    const [selectedPatientSummary, setSelectedPatientSummary] = useState(null);
     const { data: patients } = useApi(getPatients);
+    const { data: fullPatient } = useApi(() => selectedPatientSummary ? getPatient(selectedPatientSummary.id) : Promise.resolve(null), [selectedPatientSummary?.id]);
 
-    const allPatients = (patients || []).map(p => ({ ...p, pharmStatus: getPharmStatus(p) }));
+    const allPatients = (patients || []).map(p => ({
+        ...p,
+        blood: p.bloodType || 'Unknown',
+        age: p.dob ? (new Date().getFullYear() - new Date(p.dob).getFullYear()) : '—',
+        lastVisit: 'Recently active',
+        adherence: 85,
+        pharmStatus: getPharmStatus(p)
+    }));
 
     const searchFiltered = allPatients.filter(p => {
         return p.name.toLowerCase().includes(search.toLowerCase())
@@ -28,6 +36,19 @@ export default function PatientRecordsPage() {
     });
 
     const filtered = searchFiltered.filter(p => filterStatus === 'all' || p.pharmStatus === filterStatus);
+
+    const selectedPatient = fullPatient ? {
+        ...selectedPatientSummary,
+        ...fullPatient,
+        name: fullPatient.user ? `${fullPatient.user.firstName} ${fullPatient.user.lastName}` : selectedPatientSummary?.name,
+        pid: fullPatient.pid ? (fullPatient.pid.startsWith('#') ? fullPatient.pid : `#${fullPatient.pid}`) : selectedPatientSummary?.pid,
+        blood: fullPatient.bloodType || selectedPatientSummary?.blood || 'Unknown',
+        age: fullPatient.dob ? (new Date().getFullYear() - new Date(fullPatient.dob).getFullYear()) : (selectedPatientSummary?.age || '—'),
+        lastVisit: selectedPatientSummary?.lastVisit || 'Recently active',
+        adherence: selectedPatientSummary?.adherence || 85,
+        meds: fullPatient.prescriptions ? fullPatient.prescriptions.length : (selectedPatientSummary?.meds || 0),
+        prescriptions: fullPatient.prescriptions || []
+    } : selectedPatientSummary;
 
     const rxList = selectedPatient?.prescriptions ?? [];
 
@@ -85,7 +106,7 @@ export default function PatientRecordsPage() {
                                 const selected = selectedPatient?.id === p.id;
                                 const initials = p.name.split(' ').map(n => n[0]).join('').slice(0, 2);
                                 return (
-                                    <div key={p.id} onClick={() => setSelectedPatient(p)}
+                                    <div key={p.id} onClick={() => setSelectedPatientSummary(p)}
                                         className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors ${selected ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-slate-50'}`}>
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${selected ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'}`}>
                                             {initials}
@@ -174,24 +195,29 @@ export default function PatientRecordsPage() {
                                         <p className="text-sm text-slate-400 italic p-5">No prescription data on file.</p>
                                     ) : (
                                         <div className="divide-y divide-slate-100">
-                                            {rxList.map((rx, i) => (
-                                                <div key={i} className="px-5 py-3.5 hover:bg-slate-50 transition-colors">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                                                <span className="material-symbols-outlined text-primary text-[16px]">medication</span>
+                                            {rxList.map((rx, i) => {
+                                                const drugName = rx.drugName || rx.drug || 'Medication';
+                                                const refills = rx.refillsRemaining ?? rx.refills ?? 0;
+                                                const issuedDate = rx.issuedAt ? new Date(rx.issuedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : (rx.issued || 'Active');
+                                                return (
+                                                    <div key={i} className="px-5 py-3.5 hover:bg-slate-50 transition-colors">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                                    <span className="material-symbols-outlined text-primary text-[16px]">medication</span>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-slate-900 text-sm">{drugName} <span className="font-normal text-slate-400">{rx.dosage}</span></p>
+                                                                    <p className="text-xs text-slate-500">{rx.frequency || rx.freq || 'Daily'} · Issued {issuedDate}</p>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <p className="font-bold text-slate-900 text-sm">{rx.drug} <span className="font-normal text-slate-400">{rx.dosage}</span></p>
-                                                                <p className="text-xs text-slate-500">{rx.freq} · Issued {rx.issued}</p>
-                                                            </div>
+                                                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${refills > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                                {refills} refill{refills !== 1 ? 's' : ''}
+                                                            </span>
                                                         </div>
-                                                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${rx.refills > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                                                            {rx.refills} refill{rx.refills !== 1 ? 's' : ''}
-                                                        </span>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

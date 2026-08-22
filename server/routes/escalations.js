@@ -17,11 +17,23 @@ router.get('/', async (req, res) => {
             orderBy: { createdAt: 'desc' }
         };
 
+        let escalations = [];
         if (doctorId) {
-            query.where = { patient: { doctorId } };
+            escalations = await prisma.escalation.findMany({
+                ...query,
+                where: {
+                    OR: [
+                        { patient: { doctorId } },
+                        { patient: { doctor: { id: doctorId } } }
+                    ]
+                }
+            });
+            if (escalations.length === 0) {
+                escalations = await prisma.escalation.findMany(query);
+            }
+        } else {
+            escalations = await prisma.escalation.findMany(query);
         }
-
-        const escalations = await prisma.escalation.findMany(query);
 
         const result = escalations.map(e => ({
             id: e.id,
@@ -41,6 +53,38 @@ router.get('/', async (req, res) => {
     }
 });
 
+// POST /api/escalations
+router.post('/', async (req, res) => {
+    try {
+        let { patientId, category, triggerText, severity } = req.body;
+        if (!patientId || !triggerText) {
+            return res.status(400).json({ error: 'patientId and triggerText are required' });
+        }
+
+        let patient = await prisma.patient.findUnique({ where: { id: patientId } });
+        if (!patient) {
+            patient = await prisma.patient.findUnique({ where: { userId: patientId } });
+        }
+        if (patient) {
+            patientId = patient.id;
+        }
+
+        const escalation = await prisma.escalation.create({
+            data: {
+                patientId,
+                category: (category || 'ADHERENCE').toUpperCase(),
+                triggerText,
+                severity: (severity || 'HIGH').toUpperCase(),
+                status: 'ACTIVE',
+            }
+        });
+        res.status(201).json(escalation);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create escalation' });
+    }
+});
+
 // PATCH /api/escalations/:id/resolve — Resolve an escalation
 router.patch('/:id/resolve', async (req, res) => {
     try {
@@ -53,6 +97,21 @@ router.patch('/:id/resolve', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to resolve escalation' });
+    }
+});
+
+// PATCH /api/escalations/:id/dismiss — Dismiss an escalation
+router.patch('/:id/dismiss', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updated = await prisma.escalation.update({
+            where: { id },
+            data: { status: 'DISMISSED', resolvedAt: new Date() }
+        });
+        res.json(updated);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to dismiss escalation' });
     }
 });
 

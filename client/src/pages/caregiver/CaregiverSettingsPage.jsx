@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/useAuth';
-import { useNavigate } from 'react-router-dom';
 import MFASettingsCard from '../../components/MFASettingsCard';
 
 const NOTIFICATION_SETTINGS = [
@@ -47,14 +46,11 @@ const RELATIONSHIP_OPTIONS = ['Primary Caregiver', 'Family Member', 'Nurse', 'Ho
 
 export default function CaregiverSettingsPage() {
     const { user, updateUser, logout } = useAuth();
-    const navigate = useNavigate();
-
     const [displayName, setName] = useState(user?.name || `${user?.firstName || 'Mary'} ${user?.lastName || 'Johnson'}`);
     const [email, setEmail] = useState(user?.email || 'mary.j@meditrack.health');
     const [phone, setPhone] = useState(user?.phone || '+1 (555) 012-3456');
     const [relationship, setRelationship] = useState('Primary Caregiver');
     const [saved, setSaved] = useState(false);
-    const [dangerMsg, setDangerMsg] = useState('');
 
     const [prefs, setPrefs] = useState({
         missedDose: true,
@@ -73,23 +69,6 @@ export default function CaregiverSettingsPage() {
     const handleSave = () => {
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
-    };
-
-    const handleResetPrefs = () => {
-        if (!window.confirm('Reset all notification preferences to defaults?')) return;
-        setPrefs({
-            missedDose: true, upcomingDose: true, doubleDose: true,
-            refillSoon: true, refillOverdue: true, doctorEscalation: true,
-            dailySummary: false, shareWithDoctor: true, smsReminders: false,
-        });
-        setDangerMsg('Notification preferences reset to defaults.');
-        setTimeout(() => setDangerMsg(''), 3000);
-    };
-
-    const handleLogoutAll = () => {
-        if (!window.confirm('This will sign you out on all devices. Continue?')) return;
-        setDangerMsg('Signing out all sessions…');
-        setTimeout(() => { logout(); navigate('/login'); }, 1500);
     };
 
     return (
@@ -198,31 +177,6 @@ export default function CaregiverSettingsPage() {
                         </div>
                     </div>
                 ))}
-
-                {/* Danger Zone */}
-                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6">
-                    <h3 className="font-bold text-rose-800 mb-1">Danger Zone</h3>
-                    <p className="text-sm text-rose-600 mb-4">These actions are irreversible or will sign you out immediately.</p>
-                    {dangerMsg && (
-                        <div className="mb-4 px-4 py-2.5 bg-rose-100 border border-rose-300 rounded-xl text-sm font-semibold text-rose-800">
-                            ⚠ {dangerMsg}
-                        </div>
-                    )}
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                            onClick={handleResetPrefs}
-                            className="px-4 py-2 border border-rose-300 text-rose-700 font-bold rounded-xl text-sm hover:bg-rose-100 transition-colors"
-                        >
-                            Reset Notification Preferences
-                        </button>
-                        <button
-                            onClick={handleLogoutAll}
-                            className="px-4 py-2 border border-rose-300 text-rose-700 font-bold rounded-xl text-sm hover:bg-rose-100 transition-colors"
-                        >
-                            Sign Out All Devices
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     );

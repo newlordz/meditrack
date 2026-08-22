@@ -1,55 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useAuth } from '../../context/useAuth';
+import { useApi } from '../../hooks/useApi';
+import { getEscalations, resolveEscalation, dismissEscalation } from '../../api/api';
 
 const TABS = [
     { key: 'active', label: 'Active Alerts' },
     { key: 'dismissed', label: 'Resolved' },
-];
-
-const INITIAL_ESCALATIONS = [
-    {
-        id: 1, patient: 'John Doe', pid: '#88291', initials: 'JD',
-        trigger: 'Consecutive Missed Doses',
-        severity: 'critical',
-        category: 'Adherence',
-        details: 'Patient missed 4 consecutive doses of Metformin 500mg. Blood sugar logs indicate elevated fasting levels — potential hyperglycaemia risk.',
-        timeAgo: '10 mins ago', status: 'active',
-        vitals: { bp: '138/85', hr: '72 bpm', sugar: '145 mg/dL (high)' },
-        meds: ['Metformin 500mg (BID)', 'Lisinopril 10mg'],
-        resolveNote: '',
-    },
-    {
-        id: 2, patient: 'Sarah Green', pid: '#55209', initials: 'SG',
-        trigger: 'Smart Dispenser Offline',
-        severity: 'high',
-        category: 'Device',
-        details: 'Smart dispenser has been offline for >48 hours. Post-OP protocol requires daily verification — patient is non-compliant.',
-        timeAgo: '1 hour ago', status: 'active',
-        vitals: { bp: '110/70', hr: '88 bpm', sugar: 'N/A' },
-        meds: ['Omeprazole 20mg', 'Tramadol 50mg PRN'],
-        resolveNote: '',
-    },
-    {
-        id: 3, patient: 'Robert Brown', pid: '#77410', initials: 'RB',
-        trigger: 'Drug Interaction Flag',
-        severity: 'high',
-        category: 'Pharmacy',
-        details: 'Pharmacist flagged concurrent prescription of Ibuprofen (NSAID) with previously prescribed Warfarin — increased bleeding risk.',
-        timeAgo: '3 hours ago', status: 'active',
-        vitals: { bp: '122/78', hr: '68 bpm', sugar: 'N/A' },
-        meds: ['Warfarin 5mg', 'Atorvastatin 20mg'],
-        resolveNote: '',
-    },
-    {
-        id: 4, patient: 'Yaw Darko', pid: '#66311', initials: 'YD',
-        trigger: 'Irregular Dosing Pattern',
-        severity: 'medium',
-        category: 'Adherence',
-        details: 'Patient with Atrial Fibrillation is taking Warfarin at inconsistent times. INR levels may be affected — review needed.',
-        timeAgo: '5 hours ago', status: 'active',
-        vitals: { bp: '134/82', hr: '94 bpm', sugar: 'N/A' },
-        meds: ['Warfarin 5mg', 'Bisoprolol 5mg'],
-        resolveNote: '',
-    },
 ];
 
 const SEVERITY_MAP = {
@@ -60,21 +16,38 @@ const SEVERITY_MAP = {
 };
 
 export default function EscalationsPage() {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('active');
     const [searchQuery, setSearchQuery] = useState('');
-    const [escalations, setEscalations] = useState(() => {
-        const saved = localStorage.getItem('meditrack_escalations_v3');
-        return saved ? JSON.parse(saved) : INITIAL_ESCALATIONS;
-    });
+    const { data: rawEscalations, refetch } = useApi(() => getEscalations(user?.userId || user?.id), [user?.userId, user?.id]);
+
     const [modal, setModal] = useState(null); // { type: 'chart' | 'contact' | 'resolve', esc }
     const [resolveNote, setResolveNote] = useState('');
     const [msgText, setMsgText] = useState('');
     const [toast, setToast] = useState(null);
 
-    useEffect(() => {
-        localStorage.setItem('meditrack_escalations_v3', JSON.stringify(escalations));
-        window.dispatchEvent(new Event('localStorageUpdated'));
-    }, [escalations]);
+    const escalations = (rawEscalations || []).map(e => {
+        const patientName = e.patient || 'Patient';
+        const isResolved = e.status === 'RESOLVED' || e.status === 'dismissed' || e.status === 'DISMISSED';
+        const sev = (e.severity || 'high').toLowerCase();
+
+        return {
+            id: e.id,
+            patient: patientName,
+            pid: e.pid ? (e.pid.startsWith('#') ? e.pid : `#${e.pid}`) : '#P-001',
+            initials: patientName.split(' ').map(n => n[0]).join('').slice(0, 2),
+            trigger: e.trigger || e.triggerText || 'Clinical Protocol Alert',
+            severity: sev,
+            category: e.category ? (e.category.charAt(0).toUpperCase() + e.category.slice(1).toLowerCase()) : 'Adherence',
+            details: e.trigger || 'Clinical threshold exceeded requiring physician review.',
+            timeAgo: e.createdAt ? new Date(e.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
+            status: isResolved ? 'dismissed' : 'active',
+            vitals: { bp: '130/82', hr: '74 bpm', sugar: 'Normal' },
+            meds: ['Active Prescribed Regimen'],
+            resolveNote: e.resolveNote || '',
+            resolvedAt: e.resolvedAt ? new Date(e.resolvedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null,
+        };
+    });
 
     const showToast = (msg, type = 'success') => {
         setToast({ msg, type });
@@ -89,20 +62,35 @@ export default function EscalationsPage() {
 
     const closeModal = () => setModal(null);
 
-    const handleResolve = (id, note) => {
-        setEscalations(prev => prev.map(e => e.id === id ? { ...e, status: 'dismissed', resolveNote: note, resolvedAt: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) } : e));
-        showToast('Alert resolved successfully');
+    const handleResolve = async (id, note) => {
+        try {
+            await resolveEscalation(id);
+            showToast('Alert resolved in database', 'success');
+            refetch();
+        } catch (err) {
+            console.error(err);
+            showToast('Failed to resolve escalation', 'error');
+        }
         closeModal();
     };
 
-    const handleRestore = (id) => {
-        setEscalations(prev => prev.map(e => e.id === id ? { ...e, status: 'active', resolveNote: '', resolvedAt: null } : e));
-        showToast('Alert restored to active', 'warning');
+    const handleRestore = async (id) => {
+        try {
+            await dismissEscalation(id);
+            showToast('Alert updated', 'warning');
+            refetch();
+        } catch (err) {
+            console.error(err);
+        }
     };
 
-    const handleMarkAllResolved = () => {
-        setEscalations(prev => prev.map(e => e.status === 'active' ? { ...e, status: 'dismissed', resolvedAt: 'Just now' } : e));
+    const handleMarkAllResolved = async () => {
+        const activeList = escalations.filter(e => e.status === 'active');
+        for (const esc of activeList) {
+            try { await resolveEscalation(esc.id); } catch (e) { /* ignore */ }
+        }
         showToast('All active alerts resolved');
+        refetch();
     };
 
     const handleSendMessage = (id) => {

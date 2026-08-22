@@ -64,9 +64,16 @@ export default function LoginPage() {
                     role: userData.role || selectedRole,
                     mfaVerified: true,
                     mustChangePassword: userData.mustChangePassword,
+                    profileCompleted: userData.profileCompleted,
                 });
                 setIsLoading(false);
-                navigate(ROLE_ROUTES[selectedRole]);
+                if (userData.mustChangePassword) {
+                    navigate('/force-password-reset');
+                } else if ((userData.role || selectedRole) === 'patient' && !userData.profileCompleted) {
+                    navigate('/patient/onboarding');
+                } else {
+                    navigate(ROLE_ROUTES[selectedRole]);
+                }
             } catch (err) {
                 setError(err.message || 'Invalid MFA code. Please try again.');
                 setIsLoading(false);
@@ -95,7 +102,7 @@ export default function LoginPage() {
                 setIsLoading(false);
                 return;
             }
-            login({ email: '@admin', name: 'Admin (Receptionist)', id: 'ADMIN-001', role: 'admin' });
+            login({ email: '@admin', name: 'Admin (Receptionist)', id: 'ADMIN-001', role: 'admin', profileCompleted: true });
             setIsLoading(false);
             navigate('/admin/dashboard');
             return;
@@ -133,9 +140,16 @@ export default function LoginPage() {
                 role: userData.role || selectedRole,
                 mfaVerified: false,
                 mustChangePassword: userData.mustChangePassword,
+                profileCompleted: userData.profileCompleted,
             });
             setIsLoading(false);
-            navigate(ROLE_ROUTES[selectedRole]);
+            if (userData.mustChangePassword) {
+                navigate('/force-password-reset');
+            } else if ((userData.role || selectedRole) === 'patient' && !userData.profileCompleted) {
+                navigate('/patient/onboarding');
+            } else {
+                navigate(ROLE_ROUTES[selectedRole]);
+            }
         } catch (err) {
             setError(err.message || 'Invalid credentials. Please try again.');
             setIsLoading(false);

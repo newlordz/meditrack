@@ -24,20 +24,25 @@ export default function ConflictCenterPage() {
     const [notifyUrgent, setNotifyUrgent] = useState(false);
     const [notifySent, setNotifySent] = useState(new Set());
 
-    const conflicts = (rawEscalations || []).map(e => ({
-        id: e.id,
-        patient: e.patientName,
-        patientId: e.pid || '#P-001',
-        doctor: e.doctorName || 'Dr. Mensah',
-        doctorEmail: 'physician@meditrack.health',
-        title: e.reason || 'Clinical Contraindication Alert',
-        description: `Active clinical flag for patient ${e.patientName}. Prescriber intervention required.`,
-        action: 'Review concurrent medications and confirm compatibility.',
-        severity: e.severity?.toLowerCase() === 'critical' ? 'high' : 'moderate',
-        tab: e.severity?.toLowerCase() === 'critical' ? 'critical' : 'moderate',
-        status: e.status === 'ACTIVE' ? 'active' : 'resolved',
-        timeAgo: new Date(e.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-    }));
+    const conflicts = (rawEscalations || []).map(e => {
+        const patientName = e.patient || e.patientName || 'Patient';
+        const docName = e.doctor || e.doctorName || 'Dr. Mensah';
+        const trig = e.trigger || e.reason || e.category || 'Clinical Contraindication Alert';
+        return {
+            id: e.id,
+            patient: patientName,
+            patientId: e.pid || '#P-001',
+            doctor: docName,
+            doctorEmail: 'physician@meditrack.health',
+            title: trig,
+            description: `Active clinical flag for patient ${patientName}. Prescriber intervention required.`,
+            action: 'Review concurrent medications and confirm compatibility.',
+            severity: e.severity?.toLowerCase() === 'critical' ? 'high' : 'moderate',
+            tab: e.severity?.toLowerCase() === 'critical' ? 'critical' : 'moderate',
+            status: e.status === 'ACTIVE' ? 'active' : 'resolved',
+            timeAgo: new Date(e.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        };
+    });
 
     const activeCriticalCount = conflicts.filter(c => c.tab === 'critical' && c.status !== 'resolved').length;
     const activeModerateCount = conflicts.filter(c => c.tab === 'moderate' && c.status !== 'resolved').length;
