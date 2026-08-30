@@ -250,8 +250,12 @@ export default function DailyDosePage() {
     const navigate = useNavigate();
     const { data: realPatient } = useApi(() => getPatient(user?.id || user?.userId), [user?.id, user?.userId]);
 
+    const patientIdKey = user?.id || user?.userId || realPatient?.id;
+    const storageKey = patientIdKey ? `meditrack_patient_doses_${patientIdKey}` : null;
+
     const [rawDoses, setRawDoses] = useState(() => {
-        const saved = localStorage.getItem('meditrack_patient_doses');
+        if (!storageKey) return [];
+        const saved = localStorage.getItem(storageKey);
         if (saved) {
             try { return JSON.parse(saved); } catch { /* fall through */ }
         }
@@ -270,11 +274,11 @@ export default function DailyDosePage() {
         return () => clearInterval(t);
     }, []);
 
-    // Sync with real database prescriptions / schedules if present
+    // Sync strictly with real database prescriptions / schedules for THIS patient
     useEffect(() => {
         if (!realPatient) return;
-
-        const saved = localStorage.getItem('meditrack_patient_doses');
+        const currentKey = `meditrack_patient_doses_${realPatient.id || user?.id || user?.userId}`;
+        const saved = localStorage.getItem(currentKey);
         const savedDoses = saved ? JSON.parse(saved) : [];
         const savedMap = new Map(savedDoses.map(d => [d.id, d]));
 
@@ -301,9 +305,9 @@ export default function DailyDosePage() {
             });
 
             setRawDoses(dbMapped);
-            localStorage.setItem('meditrack_patient_doses', JSON.stringify(dbMapped));
-        } else if (Array.isArray(realPatient.prescriptions) && realPatient.prescriptions.length > 0) {
-            // Case B: Prescriptions exist without schedules yet -> derive doses
+            localStorage.setItem(currentKey, JSON.stringify(dbMapped));
+        } else if (Array.isArray(realPatient.prescriptions) && realPatient.prescriptions.some(p => p.status === 'ACTIVE')) {
+            // Case B: Active prescriptions exist without schedules yet -> derive doses
             const derived = [];
             realPatient.prescriptions.filter(p => p.status === 'ACTIVE').forEach((p) => {
                 const freqLower = (p.frequency || '').toLowerCase();
@@ -332,10 +336,19 @@ export default function DailyDosePage() {
 
             if (derived.length > 0) {
                 setRawDoses(derived);
-                localStorage.setItem('meditrack_patient_doses', JSON.stringify(derived));
+                localStorage.setItem(currentKey, JSON.stringify(derived));
+            } else {
+                setRawDoses([]);
+                localStorage.removeItem(currentKey);
             }
+        } else {
+            // No active schedules or prescriptions for this patient
+            setRawDoses([]);
+            localStorage.removeItem(currentKey);
         }
-    }, [realPatient]);
+        // Clean up any old global mock key
+        localStorage.removeItem('meditrack_patient_doses');
+    }, [realPatient, user?.id, user?.userId]);
 
     // Dynamically evaluate all doses relative to the real current time
     const doses = useMemo(() => {
@@ -344,12 +357,15 @@ export default function DailyDosePage() {
 
     // Persist changes
     useEffect(() => {
-        localStorage.setItem('meditrack_patient_doses', JSON.stringify(rawDoses));
-    }, [rawDoses]);
+        if (storageKey) {
+            localStorage.setItem(storageKey, JSON.stringify(rawDoses));
+        }
+    }, [rawDoses, storageKey]);
 
     useEffect(() => {
         const handle = () => {
-            const saved = localStorage.getItem('meditrack_patient_doses');
+            if (!storageKey) return;
+            const saved = localStorage.getItem(storageKey);
             if (saved) setRawDoses(JSON.parse(saved));
         };
         window.addEventListener('rxDispensedOrPrescribed', handle);
@@ -358,7 +374,7 @@ export default function DailyDosePage() {
             window.removeEventListener('rxDispensedOrPrescribed', handle);
             window.removeEventListener('focus', handle);
         };
-    }, []);
+    }, [storageKey]);
 
     const handleViewDetails = (dose) => { setSelectedDose(dose); setActiveModal('info'); };
 
@@ -387,34 +403,112 @@ export default function DailyDosePage() {
                 }
                 return d;
             });
-            localStorage.setItem('meditrack_patient_doses', JSON.stringify(updated));
+            if (storageKey) {
+                localStorage.setItem(storageKey, JSON.stringify(updated));
+            }
             return updated;
         });
         window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
     };
 
-    // ── Browser Notification permission + dose alarm ──────────
+    // ── Audio Alarm Sound (Web Audio API Synthesizer) ─────────
+    const playChime = () => {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            const nowTime = ctx.currentTime;
+            
+            // Soothing 3-tone chime: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz)
+            const tones = [
+                { freq: 523.25, start: nowTime, dur: 0.3 },
+                { freq: 659.25, start: nowTime + 0.18, dur: 0.35 },
+                { freq: 783.99, start: nowTime + 0.36, dur: 0.6 }
+            ];
+
+            tones.forEach(({ freq, start, dur }) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, start);
+                gain.gain.setValueAtTime(0, start);
+                gain.gain.linearRampToValueAtTime(0.2, start + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(start);
+                osc.stop(start + dur);
+            });
+        } catch (e) {
+            console.warn('Audio chime error:', e);
+        }
+    };
+
+    // ── Reminder Settings & Browser Notifications ─────────────
+    const [reminderSettings, setReminderSettings] = useState(() => {
+        const saved = localStorage.getItem('meditrack_reminder_settings');
+        return saved ? JSON.parse(saved) : { sound: true, push: true, advance: true, overdue: true };
+    });
+
     const [notifPermission, setNotifPermission] = useState(
         typeof Notification !== 'undefined' ? Notification.permission : 'denied'
     );
+    const [testAlertSent, setTestAlertSent] = useState(false);
+    const [liveDoseAlert, setLiveDoseAlert] = useState(null); // active in-app reminder popup
     const notifiedRef = useRef(new Set());
 
+    const updateReminderSettings = (newSettings) => {
+        setReminderSettings(newSettings);
+        localStorage.setItem('meditrack_reminder_settings', JSON.stringify(newSettings));
+    };
+
     const requestNotifPermission = async () => {
-        if (typeof Notification === 'undefined') return;
-        const res = await Notification.requestPermission();
-        setNotifPermission(res);
+        if (typeof Notification === 'undefined') {
+            setActiveModal('reminders');
+            return;
+        }
+        try {
+            const res = await Notification.requestPermission();
+            setNotifPermission(res);
+        } catch (err) {
+            console.warn('Notification permission error:', err);
+        }
+        setActiveModal('reminders');
+    };
+
+    const handleTestNotification = async () => {
+        setTestAlertSent(true);
+        if (reminderSettings.sound) {
+            playChime();
+        }
+
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && reminderSettings.push) {
+            try {
+                new Notification('💊 MediTrack Dose Reminder Test', {
+                    body: 'Dose reminders are active! You will be notified when your medications are due.',
+                    icon: '/favicon.ico',
+                });
+            } catch (err) {
+                console.warn('Test notification error:', err);
+            }
+        }
+
+        setLiveDoseAlert({
+            name: doses[0]?.name || 'Paracetamol',
+            dosage: doses[0]?.dosage || '500mg',
+            time: 'Due Now',
+            isTest: true
+        });
+
+        setTimeout(() => setTestAlertSent(false), 3000);
     };
 
     useEffect(() => {
-        if (typeof Notification === 'undefined') return;
-        if (Notification.permission === 'default') {
-            Notification.requestPermission().then(setNotifPermission);
-        }
-
         const checkDoses = () => {
-            const now = new Date();
-            const nowH = now.getHours();
-            const nowM = now.getMinutes();
+            const curDate = new Date();
+            const curH = curDate.getHours();
+            const curM = curDate.getMinutes();
+            const curTotalMinutes = curH * 60 + curM;
 
             doses.forEach(dose => {
                 if (dose.status === 'taken' || !dose.time) return;
@@ -423,24 +517,51 @@ export default function DailyDosePage() {
                 const h = Math.floor(dMin / 60);
                 const m = dMin % 60;
 
-                const key = `${dose.id}-${h}-${m}-${now.toDateString()}`;
-                if (h === nowH && m === nowM && !notifiedRef.current.has(key)) {
+                // Exact time alarm
+                const key = `${dose.id}-${h}-${m}-${curDate.toDateString()}`;
+                if (h === curH && m === curM && !notifiedRef.current.has(key)) {
                     notifiedRef.current.add(key);
-                    if (Notification.permission === 'granted') {
+
+                    if (reminderSettings.sound) playChime();
+
+                    if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && reminderSettings.push) {
                         new Notification('💊 Time to take your medication', {
                             body: `${dose.name} ${dose.dosage} is due now. Open MediTrack to verify and log.`,
                             icon: '/favicon.ico',
                             tag: key,
                         });
                     }
+
+                    setLiveDoseAlert({
+                        id: dose.id,
+                        name: dose.name,
+                        dosage: dose.dosage,
+                        time: dose.time,
+                        isTest: false
+                    });
+                }
+
+                // 15-min Advance reminder
+                if (reminderSettings.advance) {
+                    const advKey = `adv-${dose.id}-${h}-${m}-${curDate.toDateString()}`;
+                    if (dMin - curTotalMinutes === 15 && !notifiedRef.current.has(advKey)) {
+                        notifiedRef.current.add(advKey);
+                        if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && reminderSettings.push) {
+                            new Notification('⏰ Upcoming Medication in 15 mins', {
+                                body: `${dose.name} ${dose.dosage} is scheduled for ${dose.time}.`,
+                                icon: '/favicon.ico',
+                                tag: advKey,
+                            });
+                        }
+                    }
                 }
             });
         };
 
         checkDoses();
-        const interval = setInterval(checkDoses, 30000);
+        const interval = setInterval(checkDoses, 15000);
         return () => clearInterval(interval);
-    }, [doses]);
+    }, [doses, reminderSettings]);
 
     // ── Voice Log ─────────────────────────────────────────────
     const handleVoiceLog = () => {
@@ -545,6 +666,255 @@ export default function DailyDosePage() {
 
     return (
         <div className="min-h-screen bg-[#f0f4ff]">
+
+            {/* ── Live Dose Alert Toast / Popup ────────────────── */}
+            {liveDoseAlert && (
+                <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md animate-bounce-short">
+                    <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-slate-700/80 flex items-center gap-3.5 backdrop-blur-lg">
+                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 text-white shadow-md animate-pulse">
+                            <span className="material-symbols-outlined text-[24px]">alarm</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40">
+                                    {liveDoseAlert.isTest ? 'Test Alert' : 'Time for Dose'}
+                                </span>
+                                <span className="text-xs text-slate-300 font-medium">{liveDoseAlert.time}</span>
+                            </div>
+                            <p className="font-black text-sm text-white truncate mt-0.5">
+                                {liveDoseAlert.name} <span className="text-slate-300 font-normal text-xs">{liveDoseAlert.dosage}</span>
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {!liveDoseAlert.isTest && liveDoseAlert.id && (
+                                <button
+                                    onClick={() => {
+                                        setLiveDoseAlert(null);
+                                        handleVerify(liveDoseAlert.id);
+                                    }}
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow transition-colors"
+                                >
+                                    Take
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setLiveDoseAlert(null)}
+                                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Dose Reminders Settings Modal ────────────────── */}
+            {activeModal === 'reminders' && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 p-5 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-11 h-11 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-inner">
+                                    <span className="material-symbols-outlined text-white text-[24px]">notifications_active</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-black leading-tight">Dose Reminders</h3>
+                                    <p className="text-xs text-amber-100 font-medium">Alarms, notifications &amp; schedule alerts</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setActiveModal(null)}
+                                className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-colors text-white"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                            {/* Browser Permission Card */}
+                            <div className={`p-4 rounded-2xl border ${
+                                notifPermission === 'granted'
+                                    ? 'bg-emerald-50/80 border-emerald-200'
+                                    : notifPermission === 'denied'
+                                    ? 'bg-amber-50/80 border-amber-200'
+                                    : 'bg-blue-50/80 border-blue-200'
+                            }`}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-2.5">
+                                        <span className={`material-symbols-outlined text-[22px] mt-0.5 ${
+                                            notifPermission === 'granted' ? 'text-emerald-600' : notifPermission === 'denied' ? 'text-amber-600' : 'text-blue-600'
+                                        }`}>
+                                            {notifPermission === 'granted' ? 'verified' : notifPermission === 'denied' ? 'notifications_off' : 'notification_add'}
+                                        </span>
+                                        <div>
+                                            <p className={`text-xs font-bold uppercase tracking-wider ${
+                                                notifPermission === 'granted' ? 'text-emerald-800' : notifPermission === 'denied' ? 'text-amber-800' : 'text-blue-800'
+                                            }`}>
+                                                {notifPermission === 'granted' ? 'Push Notifications Allowed' : notifPermission === 'denied' ? 'Browser Alerts Blocked' : 'Permission Required'}
+                                            </p>
+                                            <p className="text-xs text-slate-600 mt-0.5">
+                                                {notifPermission === 'granted'
+                                                    ? 'Your browser will show popup notifications at dose times.'
+                                                    : notifPermission === 'denied'
+                                                    ? 'Notifications are blocked in your browser settings. Sound alarms will still chime in-app!'
+                                                    : 'Allow browser notifications so you never miss a medication dose.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {notifPermission === 'default' && (
+                                        <button
+                                            onClick={async () => {
+                                                if (typeof Notification !== 'undefined') {
+                                                    const res = await Notification.requestPermission();
+                                                    setNotifPermission(res);
+                                                }
+                                            }}
+                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors whitespace-nowrap"
+                                        >
+                                            Allow
+                                        </button>
+                                    )}
+                                </div>
+
+                                {notifPermission === 'denied' && (
+                                    <div className="mt-3 pt-3 border-t border-amber-200/80 text-[11px] text-amber-900 space-y-1">
+                                        <p className="font-bold flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[14px]">help</span> How to enable in browser:
+                                        </p>
+                                        <ol className="list-decimal pl-4 space-y-0.5 text-amber-800">
+                                            <li>Click the <strong>Lock / Tune icon (🔒)</strong> left of the URL address bar.</li>
+                                            <li>Change <strong>Notifications</strong> to <strong>Allow</strong>.</li>
+                                            <li>Refresh the page to activate desktop alerts.</li>
+                                        </ol>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Sound & Alert Toggles */}
+                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Alarm Preferences</p>
+
+                                {/* Sound chime toggle */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-[18px]">volume_up</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">Audio Chime Alarm</p>
+                                            <p className="text-[11px] text-slate-400">Pleasant melody when dose is due</p>
+                                        </div>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={reminderSettings.sound}
+                                            onChange={(e) => updateReminderSettings({ ...reminderSettings, sound: e.target.checked })}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+                                    </label>
+                                </div>
+
+                                {/* Browser Push toggle */}
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-200/60">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-[18px]">notifications</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">Browser Push Alerts</p>
+                                            <p className="text-[11px] text-slate-400">System popup notifications</p>
+                                        </div>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={reminderSettings.push}
+                                            onChange={(e) => updateReminderSettings({ ...reminderSettings, push: e.target.checked })}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+
+                                {/* Advance 15 min toggle */}
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-200/60">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-[18px]">schedule</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">15-Min Advance Notice</p>
+                                            <p className="text-[11px] text-slate-400">Heads up before dose time</p>
+                                        </div>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={reminderSettings.advance}
+                                            onChange={(e) => updateReminderSettings({ ...reminderSettings, advance: e.target.checked })}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Today's Configured Dose Alarms */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Today's Active Alarms ({doses.length})</p>
+                                </div>
+                                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                    {doses.length === 0 ? (
+                                        <div className="text-center py-4 bg-slate-50 rounded-2xl text-xs text-slate-400">
+                                            No medications scheduled for today yet.
+                                        </div>
+                                    ) : (
+                                        doses.map(d => (
+                                            <div key={d.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="material-symbols-outlined text-blue-600 text-[18px]">alarm</span>
+                                                    <div className="truncate">
+                                                        <p className="font-bold text-slate-800 truncate">{d.name}</p>
+                                                        <p className="text-[10px] text-slate-400">{d.dosage}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                    <span className="font-black text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-[11px]">
+                                                        {d.time}
+                                                    </span>
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500" title="Alarm active" />
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2 flex-shrink-0">
+                            <button
+                                onClick={handleTestNotification}
+                                className="flex-1 py-2.5 px-3 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">notifications_sound</span>
+                                {testAlertSent ? 'Alarm Tested! 🔔' : 'Test Alarm Sound'}
+                            </button>
+                            <button
+                                onClick={() => setActiveModal(null)}
+                                className="flex-1 py-2.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition-all text-center"
+                            >
+                                Save &amp; Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── Detail Modal ────────────────────────────────── */}
             {activeModal === 'info' && selectedDose && (
@@ -765,24 +1135,49 @@ export default function DailyDosePage() {
             <div className="px-4 sm:px-6 pb-24 lg:pb-8 max-w-lg mx-auto -mt-2 space-y-3">
                 {/* Section label */}
                 <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Today's Schedule</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Today's Schedule</p>
+                        <button
+                            onClick={() => setActiveModal('reminders')}
+                            className="w-6 h-6 rounded-lg bg-slate-200/70 hover:bg-slate-300 flex items-center justify-center text-slate-500 transition-colors"
+                            title="Configure Alarms & Reminders"
+                        >
+                            <span className="material-symbols-outlined text-[14px]">notifications</span>
+                        </button>
+                    </div>
                     <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100">
                         {totalCount} scheduled dose{totalCount !== 1 ? 's' : ''}
                     </span>
                 </div>
 
                 {/* Notification permission banner */}
-                {notifPermission !== 'granted' && (
-                    <button onClick={requestNotifPermission}
-                        className="w-full flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left hover:bg-amber-100 transition-colors shadow-sm">
-                        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                            <span className="material-symbols-outlined text-amber-500 text-[20px]">notifications_off</span>
+                {notifPermission !== 'granted' ? (
+                    <button
+                        onClick={requestNotifPermission}
+                        className="w-full flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-left hover:bg-amber-100 transition-colors shadow-sm cursor-pointer group"
+                    >
+                        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-amber-600 text-[20px]">notifications_off</span>
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-amber-800">Enable dose reminders</p>
                             <p className="text-xs text-amber-600">Get notified when it's time to take each medication.</p>
                         </div>
-                        <span className="material-symbols-outlined text-amber-400 text-[18px] flex-shrink-0">chevron_right</span>
+                        <span className="material-symbols-outlined text-amber-400 text-[18px] flex-shrink-0 group-hover:translate-x-0.5 transition-transform">chevron_right</span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setActiveModal('reminders')}
+                        className="w-full flex items-center gap-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl px-4 py-2.5 text-left hover:bg-emerald-100/70 transition-colors shadow-sm cursor-pointer group"
+                    >
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                            <span className="material-symbols-outlined text-[18px]">notifications_active</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-emerald-900">Dose reminders active</p>
+                            <p className="text-[11px] text-emerald-600">Chime &amp; notifications enabled · Tap to configure</p>
+                        </div>
+                        <span className="material-symbols-outlined text-emerald-500 text-[18px] flex-shrink-0 group-hover:rotate-45 transition-transform">tune</span>
                     </button>
                 )}
 

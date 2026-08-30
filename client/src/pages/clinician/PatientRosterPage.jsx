@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COMMON_DRUGS, COMMON_INSTRUCTIONS, COMMON_CONDITIONS } from '../../data/mockData';
+import { COMMON_DRUGS, COMMON_INSTRUCTIONS, COMMON_CONDITIONS, CONDITION_MED_MAP, DRUG_INTERACTIONS, DRUG_ALLERGY_CLASSES } from '../../data/mockData';
 import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { getPatients, createPrescription, getEscalations } from '../../api/api';
@@ -77,6 +77,12 @@ export default function PatientRosterPage() {
     const [filteredDiag, setFilteredDiag] = useState([]);
     const [, setUpdateTrigger] = useState(0);
     const [toastMessage, setToastMessage] = useState(null);
+
+    // ── Sickness Medication Detection state ───────────────────────────────────
+    const [detectionOpen, setDetectionOpen] = useState(true);
+    const [conditionQuery, setConditionQuery] = useState('');
+    const [showConditionSuggestions, setShowConditionSuggestions] = useState(false);
+    const [filteredConditions, setFilteredConditions] = useState([]);
 
     // Live wait-time clock — joinedAt computed once at init
     const [now, setNow] = useState(Date.now); // lazy: calls Date.now() once
@@ -276,6 +282,79 @@ export default function PatientRosterPage() {
         setShowDiagSuggestions(false);
     };
 
+    // ── Sickness Medication Detection — condition query handlers ─────────────
+    const handleConditionQueryChange = (e) => {
+        const val = e.target.value;
+        setConditionQuery(val);
+        if (val.trim()) {
+            const matches = COMMON_CONDITIONS.filter(c => c.toLowerCase().includes(val.toLowerCase()));
+            setFilteredConditions(matches);
+            setShowConditionSuggestions(true);
+        } else {
+            setFilteredConditions(COMMON_CONDITIONS);
+            setShowConditionSuggestions(true);
+        }
+    };
+
+    const handleSelectCondition = (cond) => {
+        setConditionQuery(cond);
+        setShowConditionSuggestions(false);
+    };
+
+    // ── Derived detection data ─────────────────────────────────────────────────
+    const detectionSuggestions = (() => {
+        const q = conditionQuery.trim();
+        if (!q) return [];
+        const key = Object.keys(CONDITION_MED_MAP).find(k => k.toLowerCase().includes(q.toLowerCase()) || q.toLowerCase().includes(k.toLowerCase()));
+        return key ? CONDITION_MED_MAP[key] : [];
+    })();
+
+    const detectionWarnings = (() => {
+        if (!selectedPatient || !prescriptionForm.drug) return [];
+        const warnings = [];
+        const newDrugName = prescriptionForm.drug;
+        const newDrugBase = newDrugName.split(' ')[0]; // e.g., "Warfarin"
+
+        // 1) Allergy check
+        const allergies = selectedPatient.allergies || [];
+        const drugClasses = DRUG_ALLERGY_CLASSES[newDrugName] || [newDrugBase];
+        allergies.forEach(allergy => {
+            const allergyLower = allergy.toLowerCase();
+            const hasMatch = drugClasses.some(cls => cls.toLowerCase().includes(allergyLower) || allergyLower.includes(cls.toLowerCase()));
+            if (hasMatch) {
+                warnings.push({
+                    severity: 'critical',
+                    icon: 'emergency',
+                    message: `ALLERGY ALERT: Patient is allergic to ${allergy}. ${newDrugName} may be contraindicated.`
+                });
+            }
+        });
+
+        // 2) Drug interaction check
+        const existingDrugs = (selectedPatient.prescriptions || [])
+            .filter(p => p.status === 'ACTIVE' || p.status === 'active')
+            .map(p => p.drug || p.drugName || '');
+
+        DRUG_INTERACTIONS.forEach(({ pair, severity, message }) => {
+            const [drugA, drugB] = pair;
+            const newDrugMatchesA = newDrugBase.toLowerCase().includes(drugA.toLowerCase()) || drugA.toLowerCase().includes(newDrugBase.toLowerCase());
+            const newDrugMatchesB = newDrugBase.toLowerCase().includes(drugB.toLowerCase()) || drugB.toLowerCase().includes(newDrugBase.toLowerCase());
+
+            existingDrugs.forEach(existing => {
+                const existingBase = existing.split(' ')[0];
+                const existingMatchesA = existingBase.toLowerCase().includes(drugA.toLowerCase()) || drugA.toLowerCase().includes(existingBase.toLowerCase());
+                const existingMatchesB = existingBase.toLowerCase().includes(drugB.toLowerCase()) || drugB.toLowerCase().includes(existingBase.toLowerCase());
+
+                if ((newDrugMatchesA && existingMatchesB) || (newDrugMatchesB && existingMatchesA)) {
+                    warnings.push({ severity, icon: 'warning', message: `INTERACTION: ${message}` });
+                }
+            });
+        });
+
+        return warnings;
+    })();
+
+
     const handlePrescribeSubmit = async (e) => {
         e.preventDefault();
         if (!selectedPatient || !prescriptionForm.drug || !prescriptionForm.qty) return;
@@ -335,7 +414,7 @@ export default function PatientRosterPage() {
             {/* Modal Overlay Placeholder */}
             {activeModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm animate-fade-in p-4">
-                    <div className={`bg-white rounded-2xl shadow-xl w-full p-6 relative ${activeModal === 'view' ? 'max-w-2xl text-left' : 'max-w-md text-center'}`}>
+                    <div className={`bg-white rounded-2xl shadow-xl w-full p-6 relative ${activeModal === 'view' ? 'max-w-2xl text-left' : activeModal === 'prescribe' ? 'max-w-lg text-left max-h-[90vh] overflow-y-auto' : 'max-w-md text-center'}`}>
                         <button
                             onClick={closeModal}
                             className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 z-10"
@@ -426,21 +505,32 @@ export default function PatientRosterPage() {
                                                 value={prescriptionForm.drug}
                                                 onChange={handleDrugInputChange}
                                                 onFocus={() => {
-                                                    if (prescriptionForm.drug.trim()) {
-                                                        setShowDrugSuggestions(true);
+                                                    if (!prescriptionForm.drug.trim()) {
+                                                        setFilteredDrugs(COMMON_DRUGS);
+                                                    } else {
+                                                        const matches = COMMON_DRUGS.filter(d => d.toLowerCase().includes(prescriptionForm.drug.toLowerCase()));
+                                                        setFilteredDrugs(matches);
                                                     }
+                                                    setShowDrugSuggestions(true);
                                                 }}
                                                 onBlur={() => {
                                                     // Delay blur to allow clicks on dropdown items
-                                                    setTimeout(() => setShowDrugSuggestions(false), 200);
+                                                    setTimeout(() => setShowDrugSuggestions(false), 250);
                                                 }}
                                             />
                                             {showDrugSuggestions && filteredDrugs.length > 0 && (
-                                                <ul className="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto text-left py-1">
+                                                <ul
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    className="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto text-left py-1"
+                                                >
                                                     {filteredDrugs.map((d, i) => (
                                                         <li
                                                             key={i}
-                                                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700"
+                                                            className="px-4 py-2 hover:bg-blue-50 hover:text-blue-700 cursor-pointer text-sm font-medium text-slate-700 transition-colors"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                handleSelectDrug(d);
+                                                            }}
                                                             onClick={() => handleSelectDrug(d)}
                                                         >
                                                             {d}
@@ -449,6 +539,156 @@ export default function PatientRosterPage() {
                                                 </ul>
                                             )}
                                         </div>
+                                    </div>
+
+                                    {/* ── Sickness Medication Detection Panel ── */}
+                                    <div className="border border-indigo-200 bg-gradient-to-br from-indigo-50/80 to-slate-50 rounded-xl overflow-hidden">
+                                        {/* Panel header with toggle */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setDetectionOpen(o => !o)}
+                                            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-indigo-50/50 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                                                    <span className="material-symbols-outlined text-white text-[14px]">biotech</span>
+                                                </div>
+                                                <span className="text-xs font-bold text-indigo-800 uppercase tracking-wider">Sickness Medication Intelligence</span>
+                                                {detectionWarnings.some(w => w.severity === 'critical') && (
+                                                    <span className="ml-1 px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full uppercase tracking-wide animate-pulse">Conflict</span>
+                                                )}
+                                                {!detectionWarnings.some(w => w.severity === 'critical') && detectionWarnings.length > 0 && (
+                                                    <span className="ml-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase tracking-wide">Warning</span>
+                                                )}
+                                            </div>
+                                            <span className="material-symbols-outlined text-indigo-400 text-[18px]">{detectionOpen ? 'expand_less' : 'expand_more'}</span>
+                                        </button>
+
+                                        {detectionOpen && (
+                                            <div className="px-4 pb-4 space-y-3">
+                                                {/* Condition input */}
+                                                <div className="relative">
+                                                    <label className="block text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">Condition / Diagnosis Being Treated</label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 text-[16px]">search</span>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g. Hypertension, Type 2 Diabetes..."
+                                                            className="w-full pl-9 pr-4 py-2 text-sm border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none bg-white"
+                                                            value={conditionQuery}
+                                                            onChange={handleConditionQueryChange}
+                                                            onFocus={() => {
+                                                                setFilteredConditions(conditionQuery.trim() ? COMMON_CONDITIONS.filter(c => c.toLowerCase().includes(conditionQuery.toLowerCase())) : COMMON_CONDITIONS);
+                                                                setShowConditionSuggestions(true);
+                                                            }}
+                                                            onBlur={() => setTimeout(() => setShowConditionSuggestions(false), 200)}
+                                                        />
+                                                        {showConditionSuggestions && filteredConditions.length > 0 && (
+                                                            <ul
+                                                                onMouseDown={(e) => e.preventDefault()}
+                                                                className="absolute z-30 w-full bg-white border border-slate-200 rounded-lg shadow-xl mt-1 max-h-40 overflow-y-auto text-left py-1"
+                                                            >
+                                                                {filteredConditions.map((c, i) => (
+                                                                    <li
+                                                                        key={i}
+                                                                        className="px-4 py-2 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer text-sm font-medium text-slate-700 transition-colors"
+                                                                        onMouseDown={(e) => { e.preventDefault(); handleSelectCondition(c); }}
+                                                                        onClick={() => handleSelectCondition(c)}
+                                                                    >
+                                                                        {c}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Drug suggestion cards */}
+                                                {detectionSuggestions.length > 0 && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2">Recommended First-Line Medications</p>
+                                                        <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
+                                                            {detectionSuggestions.map((s, i) => {
+                                                                const riskColors = {
+                                                                    low: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
+                                                                    medium: 'bg-amber-50 border-amber-200 hover:bg-amber-100',
+                                                                    high: 'bg-red-50 border-red-200 hover:bg-red-100',
+                                                                };
+                                                                const riskBadge = {
+                                                                    low: 'bg-emerald-100 text-emerald-700',
+                                                                    medium: 'bg-amber-100 text-amber-700',
+                                                                    high: 'bg-red-100 text-red-700',
+                                                                };
+                                                                const catColors = {
+                                                                    'CCB': 'bg-blue-100 text-blue-700',
+                                                                    'ACE Inhibitor': 'bg-purple-100 text-purple-700',
+                                                                    'ARB': 'bg-violet-100 text-violet-700',
+                                                                    'Thiazide Diuretic': 'bg-cyan-100 text-cyan-700',
+                                                                    'Beta Blocker': 'bg-slate-100 text-slate-700',
+                                                                    'Biguanide': 'bg-teal-100 text-teal-700',
+                                                                    'Sulfonylurea': 'bg-orange-100 text-orange-700',
+                                                                    'Statin': 'bg-indigo-100 text-indigo-700',
+                                                                    'SSRI': 'bg-rose-100 text-rose-700',
+                                                                    'PPI': 'bg-lime-100 text-lime-700',
+                                                                    'Anticoagulant': 'bg-red-100 text-red-700',
+                                                                    'Thyroid Hormone': 'bg-yellow-100 text-yellow-800',
+                                                                    'Loop Diuretic': 'bg-sky-100 text-sky-700',
+                                                                    'Aldosterone Antagonist': 'bg-fuchsia-100 text-fuchsia-700',
+                                                                    'Cardiac Glycoside': 'bg-red-100 text-red-700',
+                                                                    'Antiplatelet': 'bg-pink-100 text-pink-700',
+                                                                    'Antihistamine': 'bg-cyan-100 text-cyan-700',
+                                                                    'Analgesic': 'bg-green-100 text-green-700',
+                                                                    'Analgesic (Safe)': 'bg-green-100 text-green-700',
+                                                                    'NSAID': 'bg-orange-100 text-orange-700',
+                                                                    'Supplement': 'bg-lime-100 text-lime-700',
+                                                                    'Adjunct': 'bg-slate-100 text-slate-600',
+                                                                };
+                                                                const isSelected = prescriptionForm.drug === s.drug;
+                                                                return (
+                                                                    <button
+                                                                        key={i}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setPrescriptionForm(prev => ({ ...prev, drug: s.drug, instructions: s.instructions }));
+                                                                            setShowDrugSuggestions(false);
+                                                                        }}
+                                                                        className={`w-full text-left border rounded-xl p-3 transition-all cursor-pointer ${isSelected ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-200' : riskColors[s.risk] || 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
+                                                                    >
+                                                                        <div className="flex items-start justify-between gap-2 mb-1">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <span className="text-sm font-bold text-slate-900">{s.drug}</span>
+                                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${catColors[s.category] || 'bg-slate-100 text-slate-600'}`}>{s.category}</span>
+                                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${riskBadge[s.risk] || 'bg-slate-100 text-slate-600'}`}>{s.risk} risk</span>
+                                                                            </div>
+                                                                            {isSelected && (
+                                                                                <span className="material-symbols-outlined text-indigo-600 text-[18px] flex-shrink-0">check_circle</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <p className="text-xs text-slate-500 leading-tight">{s.note}</p>
+                                                                        <p className="text-xs text-slate-400 mt-1 italic">{s.instructions}</p>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <p className="text-[10px] text-indigo-400 mt-2 italic">Click a medication to auto-fill the prescription form.</p>
+                                                    </div>
+                                                )}
+
+                                                {conditionQuery.trim() && detectionSuggestions.length === 0 && (
+                                                    <div className="text-center py-3">
+                                                        <span className="material-symbols-outlined text-slate-300 text-[28px]">search_off</span>
+                                                        <p className="text-xs text-slate-400 mt-1">No suggestions for "{conditionQuery}". You can still prescribe manually above.</p>
+                                                    </div>
+                                                )}
+
+                                                {!conditionQuery.trim() && (
+                                                    <div className="flex items-center gap-2 py-2">
+                                                        <span className="material-symbols-outlined text-indigo-300 text-[20px]">tips_and_updates</span>
+                                                        <p className="text-xs text-slate-500">Enter the patient's condition above to get smart evidence-based medication recommendations.</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
@@ -497,15 +737,22 @@ export default function PatientRosterPage() {
                                                 }}
                                                 onBlur={() => {
                                                     // Delay blur to allow clicks on dropdown items
-                                                    setTimeout(() => setShowInstSuggestions(false), 200);
+                                                    setTimeout(() => setShowInstSuggestions(false), 250);
                                                 }}
                                             />
                                             {showInstSuggestions && filteredInst.length > 0 && (
-                                                <ul className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto text-left py-1">
+                                                <ul
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto text-left py-1"
+                                                >
                                                     {filteredInst.map((inst, i) => (
                                                         <li
                                                             key={i}
-                                                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700"
+                                                            className="px-4 py-2 hover:bg-blue-50 hover:text-blue-700 cursor-pointer text-sm font-medium text-slate-700 transition-colors"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                handleSelectInst(inst);
+                                                            }}
                                                             onClick={() => handleSelectInst(inst)}
                                                         >
                                                             {inst}
@@ -515,6 +762,31 @@ export default function PatientRosterPage() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* ── Contraindication Warnings ── */}
+                                    {detectionWarnings.length > 0 && (
+                                        <div className="space-y-2">
+                                            {detectionWarnings.map((w, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`flex items-start gap-3 px-3.5 py-3 rounded-xl border text-sm font-medium ${
+                                                        w.severity === 'critical' ? 'bg-red-50 border-red-200 text-red-800' :
+                                                        w.severity === 'high' ? 'bg-red-50 border-red-200 text-red-700' :
+                                                        w.severity === 'medium' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                                                        'bg-blue-50 border-blue-200 text-blue-700'
+                                                    }`}
+                                                >
+                                                    <span className={`material-symbols-outlined text-[18px] flex-shrink-0 mt-0.5 ${
+                                                        w.severity === 'critical' ? 'text-red-600' :
+                                                        w.severity === 'high' ? 'text-red-500' :
+                                                        w.severity === 'medium' ? 'text-amber-600' : 'text-blue-500'
+                                                    }`}>{w.icon}</span>
+                                                    <p className="text-xs leading-relaxed">{w.message}</p>
+                                                </div>
+                                            ))}
+                                            <p className="text-[10px] text-slate-400 italic px-1">⚠️ Warnings are advisory only. You may still proceed at your clinical discretion.</p>
+                                        </div>
+                                    )}
 
                                     <div className="flex gap-3 pt-4 border-t border-slate-100 mt-6">
                                         <button type="button" onClick={() => setActiveModal('view')} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors">
@@ -633,15 +905,22 @@ export default function PatientRosterPage() {
                                                 }}
                                                 onBlur={() => {
                                                     // Delay blur to allow clicks on dropdown items
-                                                    setTimeout(() => setShowDiagSuggestions(false), 200);
+                                                    setTimeout(() => setShowDiagSuggestions(false), 250);
                                                 }}
                                             />
                                             {showDiagSuggestions && filteredDiag.length > 0 && (
-                                                <ul className="absolute z-30 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto text-left py-1">
+                                                <ul
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    className="absolute z-30 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto text-left py-1"
+                                                >
                                                     {filteredDiag.map((diag, i) => (
                                                         <li
                                                             key={i}
-                                                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700"
+                                                            className="px-4 py-2 hover:bg-blue-50 hover:text-blue-700 cursor-pointer text-sm font-medium text-slate-700 transition-colors"
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                handleSelectDiag(diag);
+                                                            }}
                                                             onClick={() => handleSelectDiag(diag)}
                                                         >
                                                             {diag}

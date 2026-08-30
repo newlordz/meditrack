@@ -13,10 +13,12 @@ export default function PillVerificationPage() {
     const fileInputRef = useRef(null);
 
     const { data: realPatient } = useApi(() => getPatient(user?.id || user?.userId), [user?.id, user?.userId]);
+    const storageKey = user?.id || user?.userId ? `meditrack_patient_doses_${user?.id || user?.userId}` : null;
 
-    // Load doses from live realPatient schedules if available, else localStorage
+    // Load doses from live realPatient schedules if available, else patient-scoped localStorage
     const [allDoses, setAllDoses] = useState(() => {
-        const saved = localStorage.getItem('meditrack_patient_doses');
+        if (!storageKey) return [];
+        const saved = localStorage.getItem(storageKey);
         return saved ? JSON.parse(saved) : [];
     });
 
@@ -33,13 +35,17 @@ export default function PillVerificationPage() {
                 status: s.logs?.[0]?.action === 'TAKEN' ? 'taken' : 'upcoming',
             }));
             setAllDoses(mapped);
+        } else if (!realPatient.schedules || realPatient.schedules.length === 0) {
+            if (!realPatient.prescriptions || realPatient.prescriptions.length === 0) {
+                setAllDoses([]);
+            }
         }
     }, [realPatient]);
 
     // Pre-select from URL ?doseId=X first, then fall back to current/next dose
     const [selectedDoseId, setSelectedDoseId] = useState(() => {
         const urlDoseId = new URLSearchParams(window.location.search).get('doseId');
-        const saved = localStorage.getItem('meditrack_patient_doses');
+        const saved = storageKey ? localStorage.getItem(storageKey) : null;
         if (!saved) return null;
         const doses = JSON.parse(saved);
         if (urlDoseId) {
@@ -210,17 +216,19 @@ export default function PillVerificationPage() {
             }
         }
 
-        const saved = localStorage.getItem('meditrack_patient_doses');
-        if (saved) {
-            const doses = JSON.parse(saved);
-            const idx = doses.findIndex(d => d.id === selectedDoseId);
-            if (idx !== -1) {
-                doses[idx].status = 'taken';
-                doses[idx].isCurrent = false;
-                doses[idx].loggedAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        if (storageKey) {
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+                const doses = JSON.parse(saved);
+                const idx = doses.findIndex(d => d.id === selectedDoseId);
+                if (idx !== -1) {
+                    doses[idx].status = 'taken';
+                    doses[idx].isCurrent = false;
+                    doses[idx].loggedAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-                localStorage.setItem('meditrack_patient_doses', JSON.stringify(doses));
-                window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
+                    localStorage.setItem(storageKey, JSON.stringify(doses));
+                    window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
+                }
             }
         }
 

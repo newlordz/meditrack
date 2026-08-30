@@ -30,8 +30,8 @@ export default function RewardsPage() {
         });
     }
 
-    const streak = missed === 0 ? 12 : Math.max(1, 10 - missed * 2);
-    const points = 2450 + (taken * 50) - (missed * 10);
+    const streak = missed === 0 && taken > 0 ? taken : Math.max(0, taken - missed);
+    const points = Math.max(0, (taken * 50) - (missed * 10));
     const liveData = { taken, missed, streak, points };
 
     // ── Derive remaining points after redemptions ─────────────────────
@@ -39,7 +39,7 @@ export default function RewardsPage() {
         const item = STORE_ITEMS.find(i => i.id === id);
         return sum + (item ? item.cost : 0);
     }, 0);
-    const remainingPts = liveData.points - spentPoints;
+    const remainingPts = Math.max(0, liveData.points - spentPoints);
 
     // ── Badge unlocking logic based on live data ──────────────────────
     const badges = [
@@ -98,13 +98,12 @@ export default function RewardsPage() {
 
     const MILESTONE = 15;
     const weeklyData = (() => {
-        const base = [
-            { day: 'M', ok: true }, { day: 'T', ok: true }, { day: 'W', ok: true },
-            { day: 'T', ok: true }, { day: 'F', ok: true }, { day: 'S', ok: false }, { day: 'S', ok: false },
-        ];
-        if (liveData.missed === 0 && liveData.taken > 0) base[5].ok = true;
-        if (liveData.missed > 2) { base[1].ok = false; base[2].ok = false; }
-        return base;
+        const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+        const dayOfWeek = (new Date().getDay() + 6) % 7; // 0=Mon..6=Sun
+        return days.map((day, idx) => ({
+            day,
+            ok: idx <= dayOfWeek ? (liveData.taken > 0 && liveData.missed === 0) : false
+        }));
     })();
 
     // ── Redeem ────────────────────────────────────────────────────────

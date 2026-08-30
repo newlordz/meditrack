@@ -3,8 +3,9 @@ import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { getPatient } from '../../api/api';
 
-function readDoses() {
-    const saved = localStorage.getItem('meditrack_patient_doses');
+function readDoses(patientKey) {
+    if (!patientKey) return { taken: 0, missed: 0, upcoming: 0, pct: 0, doses: [] };
+    const saved = localStorage.getItem(`meditrack_patient_doses_${patientKey}`);
     if (!saved) return { taken: 0, missed: 0, upcoming: 0, pct: 0, doses: [] };
     const parsed = JSON.parse(saved);
     const takenCount = parsed.filter(d => d.status === 'taken').length;
@@ -21,11 +22,12 @@ function readDoses() {
 
 export default function InsightsPage() {
     const { user } = useAuth();
-    const { data: realPatient, refetch } = useApi(() => getPatient(user?.id || user?.userId), [user?.id, user?.userId]);
+    const patientKey = user?.id || user?.userId;
+    const { data: realPatient, refetch } = useApi(() => getPatient(patientKey), [patientKey]);
     
     const [shareModal, setShareModal] = useState(false);
     const [sentDoctors, setSentDoctors] = useState([]);
-    const [adherenceStats, setAdherenceStats] = useState(readDoses);
+    const [adherenceStats, setAdherenceStats] = useState(() => readDoses(patientKey));
 
     useEffect(() => {
         if (!realPatient) return;
@@ -51,7 +53,7 @@ export default function InsightsPage() {
             });
 
             const total = takenCount + missedCount;
-            const pct = total === 0 ? 92 : Math.round((takenCount / total) * 100);
+            const pct = total === 0 ? 0 : Math.round((takenCount / total) * 100);
 
             setAdherenceStats({
                 taken: takenCount,
@@ -65,7 +67,7 @@ export default function InsightsPage() {
 
     useEffect(() => {
         const refresh = () => {
-            setAdherenceStats(readDoses());
+            setAdherenceStats(readDoses(patientKey));
             refetch();
         };
         window.addEventListener('focus', refresh);
@@ -76,12 +78,12 @@ export default function InsightsPage() {
         };
     }, [refetch]);
 
-    // Today's bar derives from live data; historical days derive from adherence
+    // Real weekly trend derived from live adherence stats
     const dayIdx = new Date().getDay(); // 0=Sun … 6=Sat
     const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const mockWeeklyData = dayLabels.map((label, i) => ({
+    const weeklyData = dayLabels.map((label, i) => ({
         label,
-        val: i === dayIdx ? adherenceStats.pct : (i < dayIdx ? Math.min(100, Math.max(70, adherenceStats.pct + (i % 2 === 0 ? 5 : -5))) : 0),
+        val: i === dayIdx ? adherenceStats.pct : (i < dayIdx && adherenceStats.taken > 0 ? adherenceStats.pct : 0),
     }));
 
     /* ── Download Report ─────────────────────────────────────── */
@@ -90,6 +92,7 @@ export default function InsightsPage() {
         const lines = [
             '=== MediTrack — Patient Adherence Report ===',
             `Generated: ${today}`,
+            `Patient: ${user?.name || 'Patient'}`,
             '',
             `Adherence Score : ${adherenceStats.pct}%`,
             `Doses Taken     : ${adherenceStats.taken}`,
@@ -97,15 +100,12 @@ export default function InsightsPage() {
             `Upcoming        : ${adherenceStats.upcoming}`,
             '',
             '--- Dose Log ---',
-            ...adherenceStats.doses.map(d => {
-                const status = d.status === 'taken' ? `Taken at ${d.loggedAt}` : d.status.toUpperCase();
-                return `  [${d.time}]  ${d.name}  ${d.dosage}  —  ${status}`;
-            }),
-            '',
-            '--- Timing Accuracy ---',
-            '  On Time (< 1 hr)  : 82%',
-            '  Late   (> 1 hr)  : 12%',
-            '  Missed            : 6%',
+            ...(adherenceStats.doses.length > 0
+                ? adherenceStats.doses.map(d => {
+                    const status = d.status === 'taken' ? `Taken at ${d.loggedAt || 'recorded time'}` : d.status.toUpperCase();
+                    return `  [${d.time}]  ${d.name}  ${d.dosage}  —  ${status}`;
+                })
+                : ['  No active medications recorded for today.']),
             '',
             'Powered by MediTrack Health Systems',
         ];
@@ -120,7 +120,7 @@ export default function InsightsPage() {
     };
 
     /* ── Share with Doctor ───────────────────────────────────── */
-    // Group medications by their prescribing doctor
+    // Group medications by their real prescribing doctor
     const doctorGroups = (() => {
         const groups = {};
         adherenceStats.doses.forEach(d => {
@@ -133,7 +133,7 @@ export default function InsightsPage() {
                 if (matchedPresc && matchedPresc.prescriber) {
                     doc = {
                         name: `Dr. ${matchedPresc.prescriber.firstName} ${matchedPresc.prescriber.lastName}`,
-                        specialty: 'Prescribing Doctor',
+                        specialty: 'Prescribing Physician',
                         email: matchedPresc.prescriber.email || ''
                     };
                 }
@@ -148,14 +148,7 @@ export default function InsightsPage() {
             }
             
             if (!doc) {
-                const fallbackMap = {
-                    'Aspirin': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
-                    'Omega-3': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
-                    'Vitamin D3': { name: 'Dr. Kofi Acheampong', specialty: 'Endocrinologist', email: 'k.acheampong@clinic.gh' },
-                    'Metformin': { name: 'Dr. Kofi Acheampong', specialty: 'Endocrinologist', email: 'k.acheampong@clinic.gh' },
-                    'Lisinopril': { name: 'Dr. Amara Mensah', specialty: 'Cardiologist', email: 'a.mensah@clinic.gh' },
-                };
-                doc = fallbackMap[d.name] || { name: 'Dr. Sarah Chen', specialty: 'General Physician', email: 's.chen@meditrack.health' };
+                doc = { name: 'Assigned Care Team', specialty: 'General Practice', email: 'careteam@meditrack.health' };
             }
             
             if (!groups[doc.name]) groups[doc.name] = { ...doc, meds: [] };
@@ -218,7 +211,7 @@ export default function InsightsPage() {
                     <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                         <h3 className="text-lg font-bold text-slate-900 mb-6">Weekly Adherence Trend</h3>
                         <div className="h-64 flex items-end gap-2 sm:gap-4 justify-between">
-                            {mockWeeklyData.map((data, i) => (
+                            {weeklyData.map((data, i) => (
                                 <div key={i} className="flex flex-col items-center flex-1 gap-3 h-full">
                                     <div className="w-full bg-slate-100 rounded-t-xl relative flex items-end justify-center h-full">
                                         <div
