@@ -11,7 +11,10 @@ router.get('/', async (req, res) => {
         const query = {
             include: {
                 patient: {
-                    include: { user: { select: { firstName: true, lastName: true } } }
+                    include: {
+                        user: { select: { firstName: true, lastName: true } },
+                        doctor: { select: { firstName: true, lastName: true, email: true } }
+                    }
                 }
             },
             orderBy: { createdAt: 'desc' }
@@ -43,6 +46,8 @@ router.get('/', async (req, res) => {
             category: e.category,
             trigger: e.triggerText,
             status: e.status,
+            doctor: e.patient.doctor ? `Dr. ${e.patient.doctor.firstName} ${e.patient.doctor.lastName}` : 'Dr. Sarah Chen',
+            doctorEmail: e.patient.doctor?.email || 'dr.chen@meditrack.com',
             createdAt: e.createdAt,
         }));
 

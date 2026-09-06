@@ -170,7 +170,9 @@ enum RefillStatus {
   PENDING
   APPROVED
   READY
+  DISPENSED
   REJECTED
+  CANCELLED
 }
 
 enum EscalationCategory {

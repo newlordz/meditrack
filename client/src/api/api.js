@@ -76,6 +76,7 @@ export const dismissEscalation = (id) => patch(`/escalations/${id}/dismiss`);
 // ─── Prescriptions ───────────────────────────────────────────────────────────
 export const getPrescriptions = (patientId) => request(`/prescriptions?patientId=${patientId}`);
 export const createPrescription = (data) => post('/prescriptions', data);
+export const updatePrescription = (id, data) => patch(`/prescriptions/${id}`, data);
 
 // ─── Refill Requests ─────────────────────────────────────────────────────────
 export const getRefillRequests = (doctorId) => request(doctorId ? `/refills?doctorId=${doctorId}` : '/refills');

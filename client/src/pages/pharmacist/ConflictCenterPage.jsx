@@ -26,14 +26,14 @@ export default function ConflictCenterPage() {
 
     const conflicts = (rawEscalations || []).map(e => {
         const patientName = e.patient || e.patientName || 'Patient';
-        const docName = e.doctor || e.doctorName || 'Dr. Mensah';
+        const docName = e.doctor || e.doctorName || 'Dr. Sarah Chen';
         const trig = e.trigger || e.reason || e.category || 'Clinical Contraindication Alert';
         return {
             id: e.id,
             patient: patientName,
             patientId: e.pid || '#P-001',
             doctor: docName,
-            doctorEmail: 'physician@meditrack.health',
+            doctorEmail: e.doctorEmail || 'dr.chen@meditrack.com',
             title: trig,
             description: `Active clinical flag for patient ${patientName}. Prescriber intervention required.`,
             action: 'Review concurrent medications and confirm compatibility.',

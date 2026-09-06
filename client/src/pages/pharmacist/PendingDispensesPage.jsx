@@ -25,18 +25,33 @@ export default function PendingDispensesPage() {
     const [rejectReason, setRejectReason] = useState('');
     const [search, setSearch] = useState('');
     const [urgencyFilter, setUrgencyFilter] = useState('all');
+    const [toast, setToast] = useState(null);
 
-    const pending = (rawRefills || []).filter(r => (r.status === 'pending' || r.pharmacyStatus === 'PENDING')).map(r => ({
-        id: r.id,
-        patient: r.name || 'Patient',
-        drug: r.medication || 'Medication',
-        dosage: r.dosage || 'Standard dose',
-        qty: 30,
-        doctor: r.doctor || 'Clinic Doctor',
-        urgency: 'urgent',
-        instructions: 'Take as directed by doctor',
-        requestDate: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : (r.requestDate || 'Today')
-    }));
+    const showToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    const pending = (rawRefills || []).filter(r => {
+        const status = (r.pharmacyStatus || r.status || '').toLowerCase();
+        return status === 'pending' || status === 'approved';
+    }).map(r => {
+        const isApprovedByDoc = (r.pharmacyStatus || r.status || '').toUpperCase() === 'APPROVED';
+        return {
+            id: r.id,
+            patientId: r.patientId,
+            prescriptionId: r.prescriptionId,
+            patient: r.name || 'Patient',
+            drug: r.medication || 'Medication',
+            dosage: r.dosage || 'Standard dose',
+            qty: 30,
+            doctor: r.doctor || 'Clinic Doctor',
+            urgency: isApprovedByDoc ? 'urgent' : (r.urgency || 'normal'),
+            instructions: r.instructions || 'Take as directed by doctor',
+            status: r.pharmacyStatus || r.status || 'PENDING',
+            requestDate: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : (r.requestDate || 'Today')
+        };
+    });
 
     const handleDispense = async () => {
         if (!reviewTarget) return;
@@ -45,10 +60,15 @@ export default function PendingDispensesPage() {
         setReviewTarget(null);
 
         try {
-            await updateRefillStatus(rx.id, 'DISPENSED');
+            if (rx.id && !rx.id.startsWith('RX-MOCK')) {
+                await updateRefillStatus(rx.id, 'DISPENSED');
+            }
+            window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
+            showToast(`${rx.drug} successfully dispensed to ${rx.patient}!`, 'success');
             refetch();
         } catch(err) {
             console.error(err);
+            showToast(`Failed to dispense prescription: ${err.message}`, 'error');
         }
 
         setTimeout(() => {
@@ -59,10 +79,15 @@ export default function PendingDispensesPage() {
     const confirmReject = async () => {
         if (!rejectReason || !rejectTarget) return;
         try {
-            await updateRefillStatus(rejectTarget.id, 'CANCELLED');
+            if (rejectTarget.id && !rejectTarget.id.startsWith('RX-MOCK')) {
+                await updateRefillStatus(rejectTarget.id, 'CANCELLED');
+            }
+            window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
+            showToast(`${rejectTarget.drug} rejected: ${rejectReason}`, 'error');
             refetch();
         } catch(err) {
             console.error(err);
+            showToast(`Failed to reject prescription: ${err.message}`, 'error');
         }
         setRejectTarget(null);
         setRejectReason('');
@@ -82,6 +107,12 @@ export default function PendingDispensesPage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
+            {toast && (
+                <div className={`fixed top-5 right-5 z-[70] px-4 py-3 rounded-xl shadow-xl text-white text-sm font-bold flex items-center gap-2 animate-fade-in ${toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'}`}>
+                    <span className="material-symbols-outlined text-[18px]">{toast.type === 'error' ? 'cancel' : 'check_circle'}</span>
+                    {toast.msg}
+                </div>
+            )}
 
             {/* ── Review Modal ─────────────────────────────────────── */}
             {reviewTarget && (

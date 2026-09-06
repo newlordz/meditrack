@@ -80,10 +80,39 @@ router.post('/', async (req, res) => {
             });
         }
 
+        // Automatically create a doctor prescription dispense request for the pharmacy
+        await prisma.refillRequest.create({
+            data: {
+                patientId,
+                prescriptionId: prescription.id,
+                pharmacyStatus: 'APPROVED'
+            }
+        });
+
         res.status(201).json(prescription);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to create prescription' });
+    }
+});
+
+// PATCH /api/prescriptions/:id
+router.patch('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, refillsRemaining } = req.body;
+        const data = {};
+        if (status) data.status = status.toUpperCase();
+        if (refillsRemaining !== undefined) data.refillsRemaining = Number(refillsRemaining);
+
+        const updated = await prisma.prescription.update({
+            where: { id },
+            data
+        });
+        res.json(updated);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update prescription' });
     }
 });
 

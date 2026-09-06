@@ -7,7 +7,19 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      '/api': 'http://localhost:5000'
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        ws: false,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') {
+              return;
+            }
+            console.error('[vite-proxy error]', err);
+          });
+        }
+      }
     }
   },
   preview: {

@@ -35,6 +35,16 @@ export default function PillVerificationPage() {
                 status: s.logs?.[0]?.action === 'TAKEN' ? 'taken' : 'upcoming',
             }));
             setAllDoses(mapped);
+            setSelectedDoseId(prev => {
+                if (prev && mapped.some(d => String(d.id) === String(prev))) return prev;
+                const urlDoseId = new URLSearchParams(window.location.search).get('doseId');
+                if (urlDoseId) {
+                    const match = mapped.find(d => String(d.id) === String(urlDoseId));
+                    if (match) return match.id;
+                }
+                const upcoming = mapped.find(d => d.status !== 'taken');
+                return upcoming ? upcoming.id : (mapped[0]?.id || null);
+            });
         } else if (!realPatient.schedules || realPatient.schedules.length === 0) {
             if (!realPatient.prescriptions || realPatient.prescriptions.length === 0) {
                 setAllDoses([]);
@@ -57,7 +67,14 @@ export default function PillVerificationPage() {
     });
 
     const selectedDose = allDoses.find(d => d.id === selectedDoseId) ?? null;
-    const pillInfo = selectedDose ? (PILL_DATABASE[selectedDose.name] ?? { shape: '—', color: '—', imprint: '—', score: '—' }) : null;
+    const pillInfo = selectedDose ? (() => {
+        const base = (selectedDose.name || '').split(' ')[0].toLowerCase();
+        const matchKey = Object.keys(PILL_DATABASE).find(k => 
+            (selectedDose.name || '').toLowerCase().includes(k.toLowerCase()) || 
+            k.toLowerCase().includes(base)
+        );
+        return matchKey ? PILL_DATABASE[matchKey] : (PILL_DATABASE[selectedDose.name] ?? { shape: 'Round', color: 'White', imprint: 'Rx Valid', score: 'Standard' });
+    })() : null;
 
     const [stream, setStream] = useState(null);
     const [isScanning, setIsScanning] = useState(false);

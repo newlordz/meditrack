@@ -43,15 +43,20 @@ export default function PharmacistDashboardPage() {
     const { data: rawRefills, refetch: refetchRefills } = useApi(getRefillRequests);
     const { data: rawLogs, refetch: refetchLogs } = useApi(getMedicationLogs);
 
-    const pendingRefills = (rawRefills || []).filter(r => r.status === 'pending' || r.pharmacyStatus === 'PENDING').map(r => ({
+    const pendingRefills = (rawRefills || []).filter(r => {
+        const st = (r.pharmacyStatus || r.status || '').toLowerCase();
+        return st === 'pending' || st === 'approved';
+    }).map(r => ({
         id: r.id,
+        patientId: r.patientId,
+        prescriptionId: r.prescriptionId,
         name: r.name || 'Patient',
         medication: r.medication || 'Medication',
         dosage: r.dosage || 'Standard dose',
-        urgency: 'urgent',
+        urgency: (r.pharmacyStatus || r.status || '').toUpperCase() === 'APPROVED' ? 'urgent' : 'normal',
         requestDate: r.requestedAt ? new Date(r.requestedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'Today',
         doctor: r.doctor || 'Clinic Doctor',
-        status: r.status || 'pending'
+        status: r.pharmacyStatus || r.status || 'pending'
     }));
     const liveActivity = (rawLogs || []).slice(0, 6).map(l => ({
         id: l.id,
@@ -77,6 +82,7 @@ export default function PharmacistDashboardPage() {
             if (rx.id && !rx.id.startsWith('RX-MOCK')) {
                 await updateRefillStatus(rx.id, 'DISPENSED');
             }
+            window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
             refetchRefills();
             refetchLogs();
         } catch(err) {
@@ -95,6 +101,7 @@ export default function PharmacistDashboardPage() {
             if (rejectTarget.id && !rejectTarget.id.startsWith('RX-MOCK')) {
                 await updateRefillStatus(rejectTarget.id, 'CANCELLED');
             }
+            window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
             refetchRefills();
         } catch(err) {
             console.error(err);
