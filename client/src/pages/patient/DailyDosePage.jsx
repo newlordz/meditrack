@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { getPatient, recordMedicationLog } from '../../api/api';
+import { playAlertSound, ALERT_SOUND_PROFILES, unlockAudio } from '../../utils/alertSounds';
+import DashboardNotice from '../../components/DashboardNotice';
 
 /* ── Time Helper Functions ─────────────────────────────────── */
 function parseTimeToMinutes(timeStr) {
@@ -411,43 +413,37 @@ export default function DailyDosePage() {
         window.dispatchEvent(new Event('rxDispensedOrPrescribed'));
     };
 
-    // ── Audio Alarm Sound (Web Audio API Synthesizer) ─────────
-    const playChime = () => {
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return;
-            const ctx = new AudioCtx();
-            const nowTime = ctx.currentTime;
-            
-            // Soothing 3-tone chime: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz)
-            const tones = [
-                { freq: 523.25, start: nowTime, dur: 0.3 },
-                { freq: 659.25, start: nowTime + 0.18, dur: 0.35 },
-                { freq: 783.99, start: nowTime + 0.36, dur: 0.6 }
-            ];
-
-            tones.forEach(({ freq, start, dur }) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(freq, start);
-                gain.gain.setValueAtTime(0, start);
-                gain.gain.linearRampToValueAtTime(0.2, start + 0.03);
-                gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start(start);
-                osc.stop(start + dur);
-            });
-        } catch (e) {
-            console.warn('Audio chime error:', e);
-        }
+    // ── Audio Alarm Sound (Rich Web Audio Synthesizer) ─────────
+    const playChime = (soundType, volume) => {
+        const type = soundType || reminderSettings.soundType || 'medical-chime';
+        const vol = volume !== undefined ? volume : (reminderSettings.volume ?? 1.0);
+        playAlertSound(type, vol);
     };
 
     // ── Reminder Settings & Browser Notifications ─────────────
     const [reminderSettings, setReminderSettings] = useState(() => {
+        const defaultSettings = {
+            sound: true,
+            soundType: 'medical-chime',
+            volume: 1.0,
+            push: true,
+            advance: true,
+            overdue: true
+        };
         const saved = localStorage.getItem('meditrack_reminder_settings');
-        return saved ? JSON.parse(saved) : { sound: true, push: true, advance: true, overdue: true };
+        if (!saved) return defaultSettings;
+        try {
+            const parsed = JSON.parse(saved);
+            return {
+                ...defaultSettings,
+                ...parsed,
+                sound: parsed.sound !== undefined ? parsed.sound : true,
+                soundType: parsed.soundType || 'medical-chime',
+                volume: parsed.volume !== undefined ? parsed.volume : 1.0
+            };
+        } catch {
+            return defaultSettings;
+        }
     });
 
     const [notifPermission, setNotifPermission] = useState(
@@ -478,9 +474,10 @@ export default function DailyDosePage() {
 
     const handleTestNotification = async () => {
         setTestAlertSent(true);
-        if (reminderSettings.sound) {
-            playChime();
-        }
+        // Explicitly unlock audio context so browser autoplay cannot silence it
+        await unlockAudio();
+        // Always play the alarm sound immediately during test
+        playAlertSound(reminderSettings.soundType || 'medical-chime', reminderSettings.volume ?? 1.0);
 
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && reminderSettings.push) {
             try {
@@ -500,7 +497,7 @@ export default function DailyDosePage() {
             isTest: true
         });
 
-        setTimeout(() => setTestAlertSent(false), 3000);
+        setTimeout(() => setTestAlertSent(false), 3500);
     };
 
     useEffect(() => {
@@ -517,12 +514,15 @@ export default function DailyDosePage() {
                 const h = Math.floor(dMin / 60);
                 const m = dMin % 60;
 
-                // Exact time alarm
+                // Exact time alarm (with a 5-minute due window so background/throttled tabs never miss it)
                 const key = `${dose.id}-${h}-${m}-${curDate.toDateString()}`;
-                if (h === curH && m === curM && !notifiedRef.current.has(key)) {
+                const diffMin = curTotalMinutes - dMin;
+                if (diffMin >= 0 && diffMin <= 5 && !notifiedRef.current.has(key)) {
                     notifiedRef.current.add(key);
 
-                    if (reminderSettings.sound) playChime();
+                    if (reminderSettings.sound) {
+                        playAlertSound(reminderSettings.soundType || 'medical-chime', reminderSettings.volume ?? 1.0);
+                    }
 
                     if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && reminderSettings.push) {
                         new Notification('💊 Time to take your medication', {
@@ -671,9 +671,14 @@ export default function DailyDosePage() {
             {liveDoseAlert && (
                 <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md animate-bounce-short">
                     <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-slate-700/80 flex items-center gap-3.5 backdrop-blur-lg">
-                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 text-white shadow-md animate-pulse">
-                            <span className="material-symbols-outlined text-[24px]">alarm</span>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => playAlertSound(reminderSettings.soundType || 'medical-chime', reminderSettings.volume ?? 1.0)}
+                            title="Click to replay alarm sound"
+                            className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 text-white shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+                        >
+                            <span className="material-symbols-outlined text-[24px] group-hover:scale-110 transition-transform">volume_up</span>
+                        </button>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40">
@@ -686,6 +691,15 @@ export default function DailyDosePage() {
                             </p>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => playAlertSound(reminderSettings.soundType || 'medical-chime', reminderSettings.volume ?? 1.0)}
+                                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1 transition-all"
+                                title="Replay alarm chime"
+                            >
+                                <span className="material-symbols-outlined text-[15px]">volume_up</span>
+                                <span className="text-[11px] hidden sm:inline">Play</span>
+                            </button>
                             {!liveDoseAlert.isTest && liveDoseAlert.id && (
                                 <button
                                     onClick={() => {
@@ -793,8 +807,13 @@ export default function DailyDosePage() {
                             </div>
 
                             {/* Sound & Alert Toggles */}
-                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Alarm Preferences</p>
+                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Alarm Preferences</p>
+                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                        Audio Ready
+                                    </span>
+                                </div>
 
                                 {/* Sound chime toggle */}
                                 <div className="flex items-center justify-between">
@@ -803,8 +822,8 @@ export default function DailyDosePage() {
                                             <span className="material-symbols-outlined text-[18px]">volume_up</span>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-slate-800">Audio Chime Alarm</p>
-                                            <p className="text-[11px] text-slate-400">Pleasant melody when dose is due</p>
+                                            <p className="text-sm font-bold text-slate-800">Audio Alarm Chime</p>
+                                            <p className="text-[11px] text-slate-400">Acoustic alert when dose is due</p>
                                         </div>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer">
@@ -817,6 +836,107 @@ export default function DailyDosePage() {
                                         <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
                                     </label>
                                 </div>
+
+                                {/* Sound Tone Selection & Volume Level */}
+                                {reminderSettings.sound && (
+                                    <div className="pt-2 border-t border-slate-200/60 space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-bold text-slate-700">Choose Alarm Sound</label>
+                                            <span className="text-[10px] text-violet-600 font-semibold">Tap play to preview</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-1.5">
+                                            {ALERT_SOUND_PROFILES.map((profile) => {
+                                                const isSelected = (reminderSettings.soundType || 'medical-chime') === profile.id;
+                                                return (
+                                                    <div
+                                                        key={profile.id}
+                                                        onClick={() => {
+                                                            updateReminderSettings({ ...reminderSettings, soundType: profile.id });
+                                                            unlockAudio();
+                                                            playAlertSound(profile.id, reminderSettings.volume ?? 1.0);
+                                                        }}
+                                                        className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                                                            isSelected
+                                                                ? 'bg-violet-50 border-violet-400/80 shadow-sm ring-1 ring-violet-400/30'
+                                                                : 'bg-white border-slate-200 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <span className={`material-symbols-outlined text-[18px] ${isSelected ? 'text-violet-600' : 'text-slate-400'}`}>
+                                                                {profile.icon}
+                                                            </span>
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className={`text-xs font-bold truncate ${isSelected ? 'text-violet-900' : 'text-slate-800'}`}>
+                                                                        {profile.name}
+                                                                    </span>
+                                                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase tracking-wider">
+                                                                        {profile.badge}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-400 truncate">{profile.description}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    unlockAudio();
+                                                                    playAlertSound(profile.id, reminderSettings.volume ?? 1.0);
+                                                                }}
+                                                                title={`Listen to ${profile.name}`}
+                                                                className="p-1 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors flex items-center justify-center"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                                            </button>
+                                                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                                                                isSelected ? 'border-violet-600 bg-violet-600' : 'border-slate-300'
+                                                            }`}>
+                                                                {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Volume Controls */}
+                                        <div className="pt-2 border-t border-slate-200/50 flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="material-symbols-outlined text-[16px] text-slate-500">volume_up</span>
+                                                <span className="text-xs font-bold text-slate-700">Volume</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {[
+                                                    { label: '50%', val: 0.5 },
+                                                    { label: '80%', val: 0.8 },
+                                                    { label: '100% Boost', val: 1.0 }
+                                                ].map((v) => {
+                                                    const isCur = (reminderSettings.volume ?? 1.0) === v.val;
+                                                    return (
+                                                        <button
+                                                            key={v.val}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                updateReminderSettings({ ...reminderSettings, volume: v.val });
+                                                                unlockAudio();
+                                                                playAlertSound(reminderSettings.soundType || 'medical-chime', v.val);
+                                                            }}
+                                                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                                                                isCur
+                                                                    ? 'bg-violet-600 text-white shadow-sm'
+                                                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            {v.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Browser Push toggle */}
                                 <div className="flex items-center justify-between pt-2 border-t border-slate-200/60">
@@ -1036,6 +1156,7 @@ export default function DailyDosePage() {
                 <div className="absolute bottom-0 -left-12 w-48 h-48 bg-violet-400/20 rounded-full blur-2xl" />
 
                 <div className="relative z-10 px-5 sm:px-8 pt-8 pb-10 max-w-lg mx-auto">
+                    <DashboardNotice role="patient" />
                     {/* Top row — date + voice */}
                     <div className="flex items-center justify-between mb-8">
                         <div>

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import { useSiteContent } from '../context/SiteContentContext';
 import { ROLE_ROUTES } from '../context/authConstants';
 import MFAInput from '../components/MFAInput';
+import ContentModal from '../components/ContentModal';
 import { loginUser, verifyMfa, submitPasswordResetRequest } from '../api/api';
 
 const MAIN_ROLE_CARDS = [
@@ -14,12 +16,22 @@ const MAIN_ROLE_CARDS = [
 
 export default function LoginPage() {
     const { selectedRole, setSelectedRole, login } = useAuth();
+    const { content } = useSiteContent();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [mfaCode, setMfaCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Content Modals
+    const [activeModal, setActiveModal] = useState(null);
+
+    const branding = content?.branding || {};
+    const loginExp = content?.login_experience || {};
+    const policies = content?.policies || {};
+    const roleCards = (loginExp.roleCards && loginExp.roleCards.length > 0) ? loginExp.roleCards : MAIN_ROLE_CARDS;
+    const hero = loginExp.hero || {};
     
     // MFA States
     const [mfaRequired, setMfaRequired] = useState(false);
@@ -165,10 +177,19 @@ export default function LoginPage() {
                     {/* Logo and Admin */}
                     <div className="flex items-center justify-between pr-2">
                         <div className="flex items-center gap-3">
-                            <div className="bg-primary p-2.5 rounded-xl shadow-sm">
-                                <span className="material-symbols-outlined text-white text-[28px]">medical_services</span>
+                            <div className="bg-primary p-2.5 rounded-xl shadow-sm flex items-center justify-center">
+                                <span className="material-symbols-outlined text-white text-[28px]">
+                                    {branding.logoIcon || 'medical_services'}
+                                </span>
                             </div>
-                            <h1 className="text-[34px] font-bold tracking-tight text-primary">MediTrack</h1>
+                            <div>
+                                <h1 className="text-[34px] font-bold tracking-tight text-primary leading-none">
+                                    {branding.siteName || 'MediTrack'}
+                                </h1>
+                                {branding.hospitalName && (
+                                    <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{branding.hospitalName}</p>
+                                )}
+                            </div>
                         </div>
                         
                         {/* Admin Access Button */}
@@ -188,15 +209,17 @@ export default function LoginPage() {
 
                     {/* Welcome */}
                     <div className="space-y-1.5 mt-2">
-                        <h2 className="text-[26px] font-bold text-slate-900">Welcome back</h2>
+                        <h2 className="text-[26px] font-bold text-slate-900">
+                            {loginExp.welcomeTitle || 'Welcome back'}
+                        </h2>
                         <p className="text-[15px] text-slate-500 leading-relaxed pr-8">
-                            Please select your clinical role to access your personalized healthcare dashboard.
+                            {loginExp.welcomeSubtitle || 'Please select your clinical role to access your personalized healthcare dashboard.'}
                         </p>
                     </div>
 
                     {/* Role Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                        {MAIN_ROLE_CARDS.map((role) => {
+                        {roleCards.map((role) => {
                             const isSelected = selectedRole === role.key;
                             return (
                                 <button
@@ -215,30 +238,40 @@ export default function LoginPage() {
                                     )}
                                     <div className={`p-2.5 rounded-lg transition-colors mt-0.5 whitespace-nowrap
                                         ${isSelected
-                                            ? 'bg-[#e8f0fe] text-primary'  /* solid fallback for bg-primary-light */
+                                            ? 'bg-[#e8f0fe] text-primary'
                                             : 'bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-primary'
                                         }`}>
-                                        <span className="material-symbols-outlined text-[20px] block">{role.icon}</span>
+                                        <span className="material-symbols-outlined text-[20px] block">{role.icon || 'person'}</span>
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-900 mb-0.5">{role.label}</h3>
-                                        <p className="text-[11px] text-slate-500 leading-tight pr-2">{role.desc}</p>
+                                    <div className="min-w-0">
+                                        <h3 className="font-bold text-slate-900 mb-0.5 truncate">{role.label}</h3>
+                                        <p className="text-[11px] text-slate-500 leading-tight pr-2 line-clamp-2">{role.desc}</p>
                                     </div>
                                 </button>
                             );
                         })}
                     </div>
 
-                    {/* Decorative Image Container */}
+                    {/* Decorative Showcase Hero Banner */}
                     <div className="hidden lg:block relative mt-6 rounded-2xl overflow-hidden shadow-sm border border-slate-200 h-[220px]">
-                        {/* Placeholder gradient mimicking the image */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-100 to-slate-50 opacity-80" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-[url('https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-multiply"></div>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <div className="w-12 h-12 bg-white/80 backdrop-blur-sm rounded-xl flex items-center justify-center mb-3 shadow-sm border border-white">
-                                <span className="material-symbols-outlined text-primary/60 text-2xl">local_hospital</span>
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-slate-900/20 z-10" />
+                        <img
+                            src={hero.imageUrl || 'https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=2070&auto=format&fit=crop'}
+                            alt="MediTrack Security"
+                            className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center p-6 pointer-events-none">
+                            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center mb-2.5 shadow-sm border border-white/30 text-white">
+                                <span className="material-symbols-outlined text-2xl">
+                                    {branding.logoIcon || 'local_hospital'}
+                                </span>
                             </div>
-                            <p className="text-xs font-semibold text-slate-600 tracking-wide uppercase bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full border border-white">Secure Healthcare Platform</p>
+                            <span className="text-xs font-bold text-white tracking-wide uppercase bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">
+                                {hero.badgeText || 'Secure Healthcare Platform'}
+                            </span>
+                            <p className="text-sm font-bold text-white mt-2 drop-shadow-sm max-w-xs">
+                                {hero.headline || 'End-to-end intelligent medication tracking'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -391,13 +424,33 @@ export default function LoginPage() {
 
                         {/* Auth Form Footer Links */}
                         <div className="mt-5 text-center">
-                            <p className="text-[11px] text-slate-400 mb-2 leading-normal">© 2024 MediTrack Solutions. All rights reserved.</p>
+                            <p className="text-[11px] text-slate-400 mb-2 leading-normal">
+                                {loginExp.footerCopyright || '© 2024 MediTrack Solutions. All rights reserved.'}
+                            </p>
                             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                                <a href="#" className="hover:text-slate-600 transition-colors font-medium">Privacy Policy</a>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveModal('privacy')}
+                                    className="hover:text-primary transition-colors font-semibold"
+                                >
+                                    Privacy Policy
+                                </button>
                                 <span className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block"></span>
-                                <a href="#" className="hover:text-slate-600 transition-colors font-medium">Terms of Service</a>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveModal('terms')}
+                                    className="hover:text-primary transition-colors font-semibold"
+                                >
+                                    Terms of Service
+                                </button>
                                 <span className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block"></span>
-                                <a href="#" className="hover:text-slate-600 transition-colors font-medium">Contact Support</a>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveModal('support')}
+                                    className="hover:text-primary transition-colors font-semibold"
+                                >
+                                    Contact Support
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -473,6 +526,84 @@ export default function LoginPage() {
                     </div>
                 </div>
             )}
+
+            {/* Privacy Policy Modal */}
+            <ContentModal
+                isOpen={activeModal === 'privacy'}
+                onClose={() => setActiveModal(null)}
+                title={policies.privacyPolicy?.title || 'Privacy Policy & HIPAA Compliance'}
+                subtitle={`Last updated: ${policies.privacyPolicy?.lastUpdated || 'September 2024'}`}
+            >
+                <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-3">
+                        <span className="material-symbols-outlined text-primary text-[22px] flex-shrink-0">verified_user</span>
+                        <p className="text-xs text-blue-950 font-medium">
+                            MediTrack operates under strict HIPAA compliance rules and end-to-end cryptographic data protection standards.
+                        </p>
+                    </div>
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                        {policies.privacyPolicy?.content || 'No privacy policy details provided.'}
+                    </p>
+                </div>
+            </ContentModal>
+
+            {/* Terms of Service Modal */}
+            <ContentModal
+                isOpen={activeModal === 'terms'}
+                onClose={() => setActiveModal(null)}
+                title={policies.termsOfService?.title || 'Terms of Service & Clinical Guidelines'}
+                subtitle={`Last updated: ${policies.termsOfService?.lastUpdated || 'September 2024'}`}
+            >
+                <div className="space-y-4">
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+                        <span className="material-symbols-outlined text-amber-600 text-[22px] flex-shrink-0">gavel</span>
+                        <p className="text-xs text-amber-950 font-medium">
+                            Please review our standard medical protocols, patient consent procedures, and physician responsibility guidelines.
+                        </p>
+                    </div>
+                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                        {policies.termsOfService?.content || 'No terms of service details provided.'}
+                    </p>
+                </div>
+            </ContentModal>
+
+            {/* Help & Support Modal */}
+            <ContentModal
+                isOpen={activeModal === 'support'}
+                onClose={() => setActiveModal(null)}
+                title={policies.contactSupport?.title || 'Help & Clinical Support Center'}
+                subtitle={branding.siteName ? `${branding.siteName} Patient & Provider Assistance` : 'Assistance'}
+            >
+                <div className="space-y-4">
+                    <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+                        <span className="material-symbols-outlined text-rose-500 text-[22px] flex-shrink-0">emergency</span>
+                        <div>
+                            <p className="text-xs font-bold text-rose-950">Emergency Notice</p>
+                            <p className="text-xs text-rose-800 mt-0.5 leading-relaxed">
+                                {policies.contactSupport?.emergencyNotice || 'If you are experiencing a life-threatening medical emergency, please dial emergency services (911) immediately.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-1">
+                            <span className="material-symbols-outlined text-primary text-[20px]">call</span>
+                            <p className="text-[11px] font-bold text-slate-500 uppercase">Support Hotline</p>
+                            <p className="text-sm font-black text-slate-900">{branding.supportPhone || '+1 (800) 555-MEDI'}</p>
+                        </div>
+                        <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-1">
+                            <span className="material-symbols-outlined text-primary text-[20px]">mail</span>
+                            <p className="text-[11px] font-bold text-slate-500 uppercase">Clinical Email</p>
+                            <p className="text-sm font-black text-slate-900 truncate">{branding.supportEmail || 'support@meditrack.gov.gh'}</p>
+                        </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl border border-slate-100 bg-white flex items-center justify-between text-xs text-slate-600">
+                        <span className="font-semibold">Operational Hours:</span>
+                        <span className="font-bold text-slate-900">{branding.operationalHours || 'Mon - Sun: 24/7 Support'}</span>
+                    </div>
+                </div>
+            </ContentModal>
         </div>
     );
 }

@@ -207,3 +207,10 @@ enum ResetStatus {
   REJECTED
 }
 
+model SiteContent {
+  key       String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+

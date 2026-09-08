@@ -3,6 +3,7 @@ import { useAuth } from '../../context/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../../hooks/useApi';
 import { getPatients, getUsers, createUser, deleteUser as deleteStaffApi, deletePatient, resetUserPassword, updatePatient, getPasswordResetRequests, updatePasswordResetRequest, clearSystemLogs } from '../../api/api';
+import PageManagerView from './PageManagerView';
 
 const ROLE_OPTIONS = [
     { value: 'doctor', label: 'Doctor / Clinician', icon: 'stethoscope', color: 'text-blue-600 bg-blue-50' },
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
     { id: 'users', label: 'User Management', icon: 'manage_accounts' },
     { id: 'add-user', label: 'Add New User', icon: 'person_add' },
     { id: 'passwords', label: 'Password Resets', icon: 'lock_reset' },
+    { id: 'page-manager', label: 'Page Manager', icon: 'auto_stories' },
 ];
 
 const ROLE_BADGE = {
@@ -859,6 +861,11 @@ export default function AdminDashboardPage() {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* PAGE & CONTENT MANAGER */}
+                {activeSection === 'page-manager' && (
+                    <PageManagerView showToast={showToast} />
                 )}
                 </div>
                 </div>

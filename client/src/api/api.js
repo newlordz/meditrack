@@ -56,6 +56,20 @@ async function post(path, body = {}) {
     return res.json();
 }
 
+async function put(path, body = {}) {
+    const res = await fetch(`${BASE}${path}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+        let msg = res.statusText;
+        try { const data = await res.json(); if (data.error) msg = data.error; } catch { /* ignore */ }
+        throw new Error(msg);
+    }
+    return res.json();
+}
+
 // ─── Patients ────────────────────────────────────────────────────────────────
 export const getPatients = (doctorId) => request(doctorId ? `/patients?doctorId=${doctorId}` : '/patients');
 export const getPatient = (id) => request(`/patients/${id}`);
@@ -104,3 +118,10 @@ export const clearSystemLogs = () => post('/admin/clear-logs');
 
 // ─── Medicine Picture Verification API ───────────────────────────────────────
 export const verifyMedicinePicture = (data) => post('/verify/pill', data);
+
+// ─── Page Manager & Site Content API ─────────────────────────────────────────
+export const getSiteContent = () => request('/content');
+export const getSiteSection = (key) => request(`/content/${key}`);
+export const updateSiteSection = (key, data) => put(`/content/${key}`, data);
+export const resetSiteSection = (key) => post(`/content/reset/${key}`);
+export const resetAllSiteContent = () => post('/content/reset-all');

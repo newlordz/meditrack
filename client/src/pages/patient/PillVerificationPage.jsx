@@ -5,6 +5,97 @@ import { useApi } from '../../hooks/useApi';
 import { getPatient, recordMedicationLog, verifyMedicinePicture } from '../../api/api';
 import { PILL_DATABASE } from '../../data/mockData';
 
+/**
+ * Analyzes visual canvas frame for human skin tones / face presence vs pill contrast
+ */
+function analyzeCanvasContent(canvas) {
+    try {
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        if (!width || !height) return { isFaceOrSkin: false, skinRatio: 0 };
+
+        // Sample up to 6,000 pixels evenly across the canvas
+        const step = Math.max(1, Math.floor(Math.sqrt((width * height) / 6000)));
+        const imgData = ctx.getImageData(0, 0, width, height).data;
+
+        let totalPixels = 0;
+        let skinPixels = 0;
+
+        for (let y = 0; y < height; y += step) {
+            for (let x = 0; x < width; x += step) {
+                const idx = (y * width + x) * 4;
+                const r = imgData[idx];
+                const g = imgData[idx + 1];
+                const b = imgData[idx + 2];
+                totalPixels++;
+
+                // Human skin tone heuristic (Kovacs + melanin-rich adaptive rule)
+                const isSkin = (
+                    (r > 95 && g > 40 && b > 20 &&
+                     (Math.max(r, g, b) - Math.min(r, g, b)) > 15 &&
+                     Math.abs(r - g) > 15 &&
+                     r > g && r > b) ||
+                    (r > 40 && g > 25 && b > 15 &&
+                     r > g && g >= b && (r - g) >= 8)
+                );
+                if (isSkin) skinPixels++;
+            }
+        }
+
+        const skinRatio = totalPixels > 0 ? (skinPixels / totalPixels) : 0;
+        return {
+            isFaceOrSkin: skinRatio > 0.18, // Over 18% skin tones indicates a person/face/selfie
+            skinRatio: Math.round(skinRatio * 100)
+        };
+    } catch {
+        return { isFaceOrSkin: false, skinRatio: 0 };
+    }
+}
+
+/**
+ * Compresses and downscales high-res image files (from smartphones or DSLRs)
+ * to max 1280x1280 at 0.85 quality and extracts visual heuristics.
+ */
+function compressAndResizeImage(fileOrDataUrl, maxDim = 1280, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const metrics = analyzeCanvasContent(canvas);
+            resolve({
+                dataUrl: canvas.toDataURL('image/jpeg', quality),
+                metrics
+            });
+        };
+        img.onerror = (e) => reject(e);
+
+        if (typeof fileOrDataUrl === 'string') {
+            img.src = fileOrDataUrl;
+        } else {
+            const reader = new FileReader();
+            reader.onload = () => { img.src = reader.result; };
+            reader.onerror = reject;
+            reader.readAsDataURL(fileOrDataUrl);
+        }
+    });
+}
+
 export default function PillVerificationPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -24,16 +115,27 @@ export default function PillVerificationPage() {
 
     useEffect(() => {
         if (!realPatient) return;
+        const currentKey = `meditrack_patient_doses_${realPatient.id || user?.id || user?.userId}`;
+        const saved = localStorage.getItem(currentKey);
+        const savedDoses = saved ? JSON.parse(saved) : [];
+        const savedMap = new Map(savedDoses.map(d => [String(d.id), d]));
+
+        // Case A: Real Schedules from database
         if (Array.isArray(realPatient.schedules) && realPatient.schedules.length > 0) {
-            const mapped = realPatient.schedules.map((s, idx) => ({
-                id: s.id || idx + 1,
-                scheduleId: s.id,
-                time: s.scheduledTime,
-                name: s.prescription?.drugName || 'Medication',
-                dosage: s.prescription?.dosage || '',
-                instruction: s.prescription?.instructions || 'Take as directed',
-                status: s.logs?.[0]?.action === 'TAKEN' ? 'taken' : 'upcoming',
-            }));
+            const mapped = realPatient.schedules.map((s, idx) => {
+                const existing = savedMap.get(String(s.id)) || savedMap.get(String(idx + 1));
+                const isTaken = existing?.status === 'taken' || (s.logs && s.logs.length > 0 && s.logs[0].action === 'TAKEN');
+                return {
+                    id: s.id || idx + 1,
+                    scheduleId: s.id,
+                    prescriptionId: s.prescriptionId,
+                    time: s.scheduledTime,
+                    name: s.prescription?.drugName || 'Medication',
+                    dosage: s.prescription?.dosage || '',
+                    instruction: s.prescription?.instructions || 'Take as directed',
+                    status: isTaken ? 'taken' : 'upcoming',
+                };
+            });
             setAllDoses(mapped);
             setSelectedDoseId(prev => {
                 if (prev && mapped.some(d => String(d.id) === String(prev))) return prev;
@@ -45,12 +147,46 @@ export default function PillVerificationPage() {
                 const upcoming = mapped.find(d => d.status !== 'taken');
                 return upcoming ? upcoming.id : (mapped[0]?.id || null);
             });
-        } else if (!realPatient.schedules || realPatient.schedules.length === 0) {
-            if (!realPatient.prescriptions || realPatient.prescriptions.length === 0) {
-                setAllDoses([]);
-            }
+        } else if (Array.isArray(realPatient.prescriptions) && realPatient.prescriptions.some(p => p.status === 'ACTIVE')) {
+            // Case B: Active prescriptions exist without schedules yet -> derive doses (matching DailyDosePage)
+            const derived = [];
+            realPatient.prescriptions.filter(p => p.status === 'ACTIVE').forEach((p) => {
+                const freqLower = (p.frequency || '').toLowerCase();
+                let times = ['08:00 AM'];
+                if (freqLower.includes('twice') || freqLower.includes('2x') || freqLower.includes('bid')) times = ['08:00 AM', '08:00 PM'];
+                else if (freqLower.includes('three') || freqLower.includes('3x') || freqLower.includes('tid')) times = ['08:00 AM', '02:00 PM', '08:00 PM'];
+                else if (freqLower.includes('night') || freqLower.includes('bedtime') || freqLower.includes('pm')) times = ['09:00 PM'];
+
+                times.forEach((t, tIdx) => {
+                    const uniqueId = `rx_${p.id}_${tIdx}`;
+                    const existing = savedMap.get(uniqueId);
+                    derived.push({
+                        id: uniqueId,
+                        prescriptionId: p.id,
+                        time: t,
+                        name: p.drugName,
+                        dosage: p.dosage,
+                        instruction: p.instructions || p.frequency || 'Take as directed',
+                        status: existing?.status === 'taken' ? 'taken' : 'upcoming',
+                    });
+                });
+            });
+
+            setAllDoses(derived);
+            setSelectedDoseId(prev => {
+                if (prev && derived.some(d => String(d.id) === String(prev))) return prev;
+                const urlDoseId = new URLSearchParams(window.location.search).get('doseId');
+                if (urlDoseId) {
+                    const match = derived.find(d => String(d.id) === String(urlDoseId));
+                    if (match) return match.id;
+                }
+                const upcoming = derived.find(d => d.status !== 'taken');
+                return upcoming ? upcoming.id : (derived[0]?.id || null);
+            });
+        } else {
+            setAllDoses([]);
         }
-    }, [realPatient]);
+    }, [realPatient, user?.id, user?.userId]);
 
     // Pre-select from URL ?doseId=X first, then fall back to current/next dose
     const [selectedDoseId, setSelectedDoseId] = useState(() => {
@@ -66,7 +202,7 @@ export default function PillVerificationPage() {
         return due ? due.id : (doses.length > 0 ? doses[0].id : null);
     });
 
-    const selectedDose = allDoses.find(d => d.id === selectedDoseId) ?? null;
+    const selectedDose = allDoses.find(d => String(d.id) === String(selectedDoseId)) ?? null;
     const pillInfo = selectedDose ? (() => {
         const base = (selectedDose.name || '').split(' ')[0].toLowerCase();
         const matchKey = Object.keys(PILL_DATABASE).find(k => 
@@ -116,7 +252,7 @@ export default function PillVerificationPage() {
         setErrorMessage('');
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+                video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
             });
             setStream(mediaStream);
             setIsScanning(true);
@@ -136,7 +272,13 @@ export default function PillVerificationPage() {
     }, [stream]);
 
     /* ── Send image to Picture Verification API ────────────────── */
-    const processImageVerification = async (imageDataUrl) => {
+    const processImageVerification = async (imageDataUrl, clientMetrics = null) => {
+        if (allDoses.length === 0) {
+            setErrorMessage('No active prescribed medication found. You must select an active prescription before verifying a dose.');
+            setScanState('idle');
+            return;
+        }
+
         setScanState('scanning');
         setErrorMessage('');
 
@@ -146,74 +288,59 @@ export default function PillVerificationPage() {
                 expectedDrug: selectedDose?.name || 'General Prescription',
                 dosage: selectedDose?.dosage || 'Standard dose',
                 scheduleId: selectedDose?.scheduleId,
-                patientId: realPatient?.id || user?.id
+                prescriptionId: selectedDose?.prescriptionId,
+                patientId: realPatient?.id || user?.id,
+                clientMetrics: clientMetrics || undefined
             });
 
             setScanResult(result);
             setScanState('done');
         } catch (err) {
             console.error('API Verification error:', err);
-            // Fallback gracefully so patient is never blocked
-            setScanResult({
-                success: true,
-                verificationId: `VER-${Date.now()}`,
-                status: 'VERIFIED',
-                matchConfidence: 96,
-                verifiedAt: new Date().toISOString(),
-                expected: {
-                    drugName: selectedDose?.name || 'Prescription Drug',
-                    dosage: selectedDose?.dosage || 'Standard Dose'
-                },
-                detectedAttributes: {
-                    pillShape: pillInfo?.shape || 'Oval / Caplet',
-                    pillColor: pillInfo?.color || 'White',
-                    imprintCode: pillInfo?.imprint || 'Rx Valid',
-                    scoreType: pillInfo?.score || 'Standard'
-                },
-                checks: {
-                    shapeMatch: true,
-                    colorMatch: true,
-                    imprintMatch: true,
-                    dosageCheck: 'Normal Dosage Range'
-                },
-                safetyAnalysis: {
-                    therapeuticClass: 'Doctor Prescribed Formulation',
-                    safetyGuidance: selectedDose?.instruction || 'Take as directed.'
-                }
-            });
-            setScanState('done');
+            setScanState('idle');
+            setErrorMessage(err?.response?.data?.error || err.message || 'Verification request failed. Please check network connection and try again.');
         }
     };
 
     /* ── Capture snapshot from live video ───────────────────────── */
-    const handleCapture = useCallback(() => {
+    const handleCapture = useCallback(async () => {
         const video = videoRef.current;
         const canvas = canvasRef.current;
         if (!video || !canvas) return;
 
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        setSnapshot(dataUrl);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        const liveMetrics = analyzeCanvasContent(canvas);
+        const rawDataUrl = canvas.toDataURL('image/jpeg', 0.88);
         stopCamera();
 
-        processImageVerification(dataUrl);
-    }, [stopCamera, selectedDose, realPatient, pillInfo]);
+        try {
+            const { dataUrl, metrics } = await compressAndResizeImage(rawDataUrl, 1280, 0.85);
+            setSnapshot(dataUrl);
+            processImageVerification(dataUrl, metrics || liveMetrics);
+        } catch {
+            setSnapshot(rawDataUrl);
+            processImageVerification(rawDataUrl, liveMetrics);
+        }
+    }, [stopCamera, selectedDose, realPatient, pillInfo, allDoses]);
 
-    /* ── File Upload Handler ────────────────────────────────────── */
-    const handleFileUpload = (e) => {
+    /* ── File Upload Handler with Auto Compression ──────────────── */
+    const handleFileUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         stopCamera();
-        const reader = new FileReader();
-        reader.onload = () => {
-            const dataUrl = reader.result;
+        setErrorMessage('');
+        try {
+            const { dataUrl, metrics } = await compressAndResizeImage(file, 1280, 0.85);
             setSnapshot(dataUrl);
-            processImageVerification(dataUrl);
-        };
-        reader.readAsDataURL(file);
+            processImageVerification(dataUrl, metrics);
+        } catch (err) {
+            console.error('File compression error:', err);
+            setErrorMessage('Unable to process the image file. Please try selecting a standard JPEG or PNG photo.');
+        }
     };
 
     /* ── Confirm & log the SELECTED dose to PostgreSQL ──────────── */
@@ -226,6 +353,7 @@ export default function PillVerificationPage() {
                 await recordMedicationLog({
                     patientId: realPatient.id,
                     scheduleId: selectedDose.scheduleId || undefined,
+                    prescriptionId: selectedDose.prescriptionId || undefined,
                     action: 'TAKEN'
                 });
             } catch (err) {
@@ -237,7 +365,7 @@ export default function PillVerificationPage() {
             const saved = localStorage.getItem(storageKey);
             if (saved) {
                 const doses = JSON.parse(saved);
-                const idx = doses.findIndex(d => d.id === selectedDoseId);
+                const idx = doses.findIndex(d => String(d.id) === String(selectedDoseId));
                 if (idx !== -1) {
                     doses[idx].status = 'taken';
                     doses[idx].isCurrent = false;
@@ -262,6 +390,20 @@ export default function PillVerificationPage() {
         setErrorMessage('');
         startCamera();
     };
+
+    const isVerified = Boolean(
+        scanResult &&
+        scanResult.status === 'VERIFIED' &&
+        (scanResult.matchConfidence ?? 0) >= 75
+    );
+    const isNotMedication = Boolean(
+        scanResult &&
+        (scanResult.status === 'NOT_MEDICATION' ||
+         scanResult.matchConfidence === 0 ||
+         scanResult.detectedAttributes?.pillShape?.toLowerCase().includes('person') ||
+         scanResult.detectedAttributes?.pillShape?.toLowerCase().includes('face') ||
+         scanResult.detectedAttributes?.pillShape?.toLowerCase().includes('non-medication'))
+    );
 
     return (
         <>
@@ -326,17 +468,25 @@ export default function PillVerificationPage() {
                                         <h3 className="text-lg font-bold text-white">Capture or Upload Medicine Photo</h3>
                                         <p className="text-xs text-slate-400">Position your pill or packaging label clearly under good lighting.</p>
                                         
+                                        {allDoses.length === 0 && (
+                                            <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 text-xs text-left">
+                                                ⚠️ No active doctor-prescribed doses found. You must have a prescribed dose before verifying.
+                                            </div>
+                                        )}
+
                                         <div className="flex flex-col sm:flex-row gap-3 pt-2">
                                             <button
                                                 onClick={startCamera}
-                                                className="flex-1 px-5 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 text-sm cursor-pointer"
+                                                disabled={allDoses.length === 0}
+                                                className="flex-1 px-5 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                                 <span className="material-symbols-outlined text-[18px]">videocam</span>
                                                 Start Camera
                                             </button>
                                             <button
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="flex-1 px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+                                                disabled={allDoses.length === 0}
+                                                className="flex-1 px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl transition-all flex items-center justify-center gap-2 text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
                                                 <span className="material-symbols-outlined text-[18px]">upload_file</span>
                                                 Upload Photo
@@ -382,15 +532,27 @@ export default function PillVerificationPage() {
                                     {scanState === 'done' && scanResult && (
                                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
                                             <div className={`border-4 rounded-2xl w-[60%] h-[60%] flex items-end justify-center pb-3 shadow-2xl transition-all ${
-                                                scanResult.status === 'VERIFIED' ? 'border-emerald-500 bg-emerald-500/10' : 'border-amber-500 bg-amber-500/10'
+                                                isNotMedication
+                                                    ? 'border-rose-500 bg-rose-500/20 shadow-rose-500/30'
+                                                    : isVerified
+                                                        ? 'border-emerald-500 bg-emerald-500/10'
+                                                        : 'border-amber-500 bg-amber-500/10'
                                             }`}>
                                                 <span className={`text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md ${
-                                                    scanResult.status === 'VERIFIED' ? 'bg-emerald-600' : 'bg-amber-600'
+                                                    isNotMedication
+                                                        ? 'bg-rose-600'
+                                                        : isVerified
+                                                            ? 'bg-emerald-600'
+                                                            : 'bg-amber-600'
                                                 }`}>
                                                     <span className="material-symbols-outlined text-[14px]">
-                                                        {scanResult.status === 'VERIFIED' ? 'verified' : 'warning'}
+                                                        {isNotMedication ? 'cancel' : isVerified ? 'verified' : 'warning'}
                                                     </span>
-                                                    {scanResult.status === 'VERIFIED' ? `Verified (${scanResult.matchConfidence}%)` : 'Attention Required'}
+                                                    {isNotMedication
+                                                        ? 'Not Medication (0%)'
+                                                        : isVerified
+                                                            ? `Verified (${scanResult.matchConfidence}%)`
+                                                            : `Caution: Review (${scanResult.matchConfidence}%)`}
                                                 </span>
                                             </div>
                                         </div>
@@ -427,9 +589,11 @@ export default function PillVerificationPage() {
                                             </>
                                         )}
                                         {scanState === 'done' && (
-                                            <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
-                                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                                                Analysis Complete
+                                            <span className={`${isVerified ? 'text-emerald-400' : 'text-amber-400'} text-xs font-bold flex items-center gap-1`}>
+                                                <span className="material-symbols-outlined text-[16px]">
+                                                    {isVerified ? 'check_circle' : 'warning'}
+                                                </span>
+                                                {isVerified ? 'Analysis Complete' : 'Inspection Alert'}
                                             </span>
                                         )}
                                     </div>
@@ -513,7 +677,7 @@ export default function PillVerificationPage() {
                                         >
                                             {allDoses.map(d => (
                                                 <option key={d.id} value={d.id}>
-                                                    {d.name} {d.dosage} — {d.time} ({d.status.toUpperCase()})
+                                                    {d.name} {d.dosage} — {d.time} ({(d.status || 'UPCOMING').toUpperCase()})
                                                 </option>
                                             ))}
                                         </select>
@@ -556,8 +720,10 @@ export default function PillVerificationPage() {
                                     Verification Analysis
                                 </span>
                                 {scanResult && (
-                                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                                        Live Result
+                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                        isVerified ? 'text-emerald-600 bg-emerald-50' : 'text-amber-700 bg-amber-50'
+                                    }`}>
+                                        {scanResult.engine === 'AI_VISION' ? '🤖 AI Vision Result' : 'Live Result'}
                                     </span>
                                 )}
                             </h3>
@@ -578,16 +744,49 @@ export default function PillVerificationPage() {
 
                             {scanState === 'done' && scanResult && (
                                 <div className="space-y-4 animate-fade-in">
+                                    {/* Mismatch or Rejection Alert Banner */}
+                                    {isNotMedication ? (
+                                        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 flex items-start gap-2.5">
+                                            <span className="material-symbols-outlined text-rose-600 text-xl flex-shrink-0 mt-0.5">cancel</span>
+                                            <div>
+                                                <p className="font-bold text-rose-900">Rejected: Non-Medication Detected</p>
+                                                <p className="text-rose-800 mt-0.5 leading-snug">
+                                                    The camera detected a human face, person, or non-pill object. Please position your actual pill or medicine packaging clearly in the center of the camera.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : !isVerified && (
+                                        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5">
+                                            <span className="material-symbols-outlined text-amber-600 text-xl flex-shrink-0 mt-0.5">warning</span>
+                                            <div>
+                                                <p className="font-bold">Possible Pill Mismatch</p>
+                                                <p className="text-amber-800 mt-0.5 leading-snug">
+                                                    The photographed pill appearance does not closely match the expected prescription. Please inspect carefully or consult Dr. Chen or your pharmacist before taking.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Confidence Bar */}
                                     <div>
                                         <div className="flex items-center justify-between text-xs font-bold mb-1.5">
                                             <span className="text-slate-600">Visual Match Confidence</span>
-                                            <span className="text-emerald-600 text-sm font-black">{scanResult.matchConfidence}%</span>
+                                            <span className={`text-sm font-black ${
+                                                isNotMedication ? 'text-rose-600' : isVerified ? 'text-emerald-600' : 'text-amber-600'
+                                            }`}>
+                                                {scanResult.matchConfidence}%
+                                            </span>
                                         </div>
                                         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                             <div
-                                                className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-700"
-                                                style={{ width: `${scanResult.matchConfidence}%` }}
+                                                className={`h-full rounded-full transition-all duration-700 ${
+                                                    isNotMedication
+                                                        ? 'bg-rose-500'
+                                                        : isVerified
+                                                            ? 'bg-gradient-to-r from-emerald-400 to-teal-500'
+                                                            : 'bg-gradient-to-r from-amber-400 to-orange-500'
+                                                }`}
+                                                style={{ width: `${Math.max(scanResult.matchConfidence, isNotMedication ? 0 : 5)}%` }}
                                             />
                                         </div>
                                     </div>
@@ -596,17 +795,35 @@ export default function PillVerificationPage() {
                                     <div className="bg-slate-50 rounded-2xl p-3.5 space-y-2 text-xs">
                                         <div className="flex justify-between pb-1.5 border-b border-slate-200">
                                             <span className="text-slate-500 font-medium">Visual Pill Shape</span>
-                                            <span className="font-bold text-slate-800">{scanResult.detectedAttributes?.pillShape || 'Round / Oval'}</span>
+                                            <span className={`font-bold ${isNotMedication ? 'text-rose-700' : 'text-slate-800'}`}>
+                                                {scanResult.detectedAttributes?.pillShape || (isNotMedication ? 'Non-Medication Detected' : 'Round / Oval')}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between pb-1.5 border-b border-slate-200">
                                             <span className="text-slate-500 font-medium">Color Consistency</span>
-                                            <span className="font-bold text-slate-800">{scanResult.detectedAttributes?.pillColor || 'White'}</span>
+                                            <span className="font-bold text-slate-800">{scanResult.detectedAttributes?.pillColor || (isNotMedication ? 'N/A' : 'White')}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-slate-500 font-medium">Imprint Markings</span>
-                                            <span className="font-bold text-slate-800">{scanResult.detectedAttributes?.imprintCode || 'Verified'}</span>
+                                            <span className="font-bold text-slate-800">{scanResult.detectedAttributes?.imprintCode || (isNotMedication ? 'None' : 'Verified')}</span>
                                         </div>
                                     </div>
+
+                                    {/* Clinical Notes (from Gemini AI or Engine) */}
+                                    {scanResult.clinicalNotes && (
+                                        <div className={`p-3 rounded-xl text-[11px] flex items-start gap-2 border ${
+                                            isNotMedication
+                                                ? 'bg-rose-50/70 border-rose-200 text-rose-800'
+                                                : 'bg-slate-100 border-slate-200 text-slate-700'
+                                        }`}>
+                                            <span className={`material-symbols-outlined text-[16px] mt-0.5 flex-shrink-0 ${
+                                                isNotMedication ? 'text-rose-600' : 'text-slate-500'
+                                            }`}>
+                                                {isNotMedication ? 'warning' : 'psychology'}
+                                            </span>
+                                            <p className="leading-snug">{scanResult.clinicalNotes}</p>
+                                        </div>
+                                    )}
 
                                     {/* Safety Guidance */}
                                     {scanResult.safetyAnalysis?.safetyGuidance && (
@@ -620,8 +837,14 @@ export default function PillVerificationPage() {
                                     <div className="pt-2">
                                         <button
                                             onClick={handleConfirmDose}
-                                            disabled={isSubmittingLog}
-                                            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 text-sm cursor-pointer disabled:opacity-50"
+                                            disabled={isSubmittingLog || isNotMedication}
+                                            className={`w-full py-3.5 text-white font-bold rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 text-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                                                isNotMedication
+                                                    ? 'bg-rose-600 shadow-rose-600/20'
+                                                    : isVerified
+                                                        ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                                                        : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                                            }`}
                                         >
                                             {isSubmittingLog ? (
                                                 <>
@@ -630,8 +853,14 @@ export default function PillVerificationPage() {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span className="material-symbols-outlined text-[18px]">verified</span>
-                                                    Confirm &amp; Log Dose (DB)
+                                                    <span className="material-symbols-outlined text-[18px]">
+                                                        {isNotMedication ? 'block' : isVerified ? 'verified' : 'priority_high'}
+                                                    </span>
+                                                    {isNotMedication
+                                                        ? 'Verification Rejected (Cannot Log)'
+                                                        : isVerified
+                                                            ? 'Confirm & Log Dose (DB)'
+                                                            : 'Confirm & Log Anyway (DB)'}
                                                 </>
                                             )}
                                         </button>

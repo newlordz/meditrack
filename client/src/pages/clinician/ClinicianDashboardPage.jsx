@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useApi } from '../../hooks/useApi';
 import { getPatients, getEscalations, getRefillRequests, getMedicationLogs } from '../../api/api';
+import DashboardNotice from '../../components/DashboardNotice';
 
 const QUICK_LINKS = [
     { label: 'Patient Roster', icon: 'groups', to: '/clinician/roster', desc: 'View all patients', color: 'text-blue-600 bg-blue-50 border-blue-100' },
@@ -130,6 +131,7 @@ export default function ClinicianDashboardPage() {
 
             <div className="flex-1 w-full px-4 sm:px-6 py-6 mb-20 lg:mb-0 animate-fade-in -mt-2">
                 <div className="max-w-7xl mx-auto w-full space-y-6">
+                    <DashboardNotice role="doctor" />
 
                 {/* ── Row 2: High-Risk + Activity ──────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

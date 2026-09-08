@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SiteContentProvider } from './context/SiteContentContext';
 import { useAuth } from './context/useAuth';
+import BroadcastBanner from './components/BroadcastBanner';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import DailyDosePage from './pages/patient/DailyDosePage';
@@ -130,7 +132,10 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <SiteContentProvider>
+          <BroadcastBanner />
+          <AppRoutes />
+        </SiteContentProvider>
       </AuthProvider>
     </BrowserRouter>
   );

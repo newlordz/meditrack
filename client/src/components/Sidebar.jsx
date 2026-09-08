@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import { useSiteContent } from '../context/SiteContentContext';
 import { useApi } from '../hooks/useApi';
 import { getEscalations } from '../api/api';
 
@@ -44,6 +45,8 @@ const ROLE_LABELS = {
 
 export default function Sidebar() {
     const { user, logout } = useAuth();
+    const { content } = useSiteContent();
+    const branding = content?.branding || {};
     const role = user?.role || 'patient';
     const items = NAV_ITEMS[role] || [];
     const roleLabel = ROLE_LABELS[role] || 'Portal';
@@ -76,10 +79,14 @@ export default function Sidebar() {
             {/* Logo */}
             <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100">
                 <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-                    <span className="material-symbols-outlined text-white text-xl">medical_services</span>
+                    <span className="material-symbols-outlined text-white text-xl">
+                        {branding.logoIcon || 'medical_services'}
+                    </span>
                 </div>
                 <div className="min-w-0">
-                    <h1 className="text-base font-bold leading-tight text-slate-900">MediTrack</h1>
+                    <h1 className="text-base font-bold leading-tight text-slate-900 truncate">
+                        {branding.siteName || 'MediTrack'}
+                    </h1>
                     <p className="text-xs text-slate-400 leading-tight">{roleLabel}</p>
                 </div>
             </div>
@@ -188,6 +195,8 @@ export function MobileNav() {
 export function MobileHeader() {
     const [isOpen, setIsOpen] = useState(false);
     const { user, logout } = useAuth();
+    const { content } = useSiteContent();
+    const branding = content?.branding || {};
     const role = user?.role || 'patient';
     const items = NAV_ITEMS[role] || [];
     const roleLabel = ROLE_LABELS[role] || 'Portal';
@@ -218,10 +227,14 @@ export function MobileHeader() {
             <header className="fixed top-0 left-0 w-full h-16 bg-white border-b border-slate-200 z-40 flex items-center justify-between px-4 lg:hidden">
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-                        <span className="material-symbols-outlined text-white text-[18px]">medical_services</span>
+                        <span className="material-symbols-outlined text-white text-[18px]">
+                            {branding.logoIcon || 'medical_services'}
+                        </span>
                     </div>
                     <div>
-                        <h1 className="text-sm font-black leading-none text-slate-900 tracking-tight">MediTrack</h1>
+                        <h1 className="text-sm font-black leading-none text-slate-900 tracking-tight">
+                            {branding.siteName || 'MediTrack'}
+                        </h1>
                         <p className="text-[10px] text-primary font-bold mt-0.5">{roleLabel}</p>
                     </div>
                 </div>

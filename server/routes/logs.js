@@ -17,10 +17,10 @@ router.get('/', async (req, res) => {
 
         res.json(logs.map(l => ({
             id: l.id,
-            patient: `${l.patient.user.firstName} ${l.patient.user.lastName}`,
-            pid: l.patient.pid,
-            drug: l.schedule.prescription.drugName,
-            dosage: l.schedule.prescription.dosage,
+            patient: l.patient?.user ? `${l.patient.user.firstName} ${l.patient.user.lastName}` : 'Patient',
+            pid: l.patient?.pid || 'N/A',
+            drug: l.schedule?.prescription?.drugName || 'Prescribed Medication',
+            dosage: l.schedule?.prescription?.dosage || 'Standard Dose',
             action: l.action,
             loggedAt: l.loggedAt,
         })));
@@ -33,15 +33,47 @@ router.get('/', async (req, res) => {
 // POST /api/logs - Create medication log
 router.post('/', async (req, res) => {
     try {
-        const { patientId, scheduleId, action } = req.body;
+        let { patientId, scheduleId, prescriptionId, action } = req.body;
         if (!patientId || !action) {
             return res.status(400).json({ error: 'patientId and action are required' });
+        }
+
+        // If scheduleId is not provided, locate or create a schedule for the patient
+        if (!scheduleId) {
+            let schedule = await prisma.schedule.findFirst({
+                where: { patientId },
+                include: { prescription: true }
+            });
+
+            if (!schedule) {
+                const rx = prescriptionId 
+                    ? await prisma.prescription.findUnique({ where: { id: prescriptionId } })
+                    : await prisma.prescription.findFirst({ where: { patientId, status: 'ACTIVE' } });
+
+                if (rx) {
+                    schedule = await prisma.schedule.create({
+                        data: {
+                            patientId,
+                            prescriptionId: rx.id,
+                            scheduledTime: '08:00 AM'
+                        }
+                    });
+                }
+            }
+
+            if (schedule) {
+                scheduleId = schedule.id;
+            }
+        }
+
+        if (!scheduleId) {
+            return res.status(400).json({ error: 'No active schedule available to record medication log.' });
         }
 
         const log = await prisma.medicationLog.create({
             data: {
                 patientId,
-                scheduleId: scheduleId || undefined,
+                scheduleId,
                 action: action.toUpperCase()
             }
         });
